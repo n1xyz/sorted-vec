@@ -247,6 +247,11 @@ impl <T : Ord> SortedVec <T> {
     self.vec.sort_unstable();
     res
   }
+  /// The caller must ensure that the provided vector is already sorted.
+  #[inline]
+  pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+    SortedVec { vec }
+  }
   /// Unsafe access to the underlying vector. The caller must ensure that any
   /// changes to the values in the vector do not impact the ordering of the
   /// elements inside, or else this container will misbehave.
@@ -451,6 +456,13 @@ impl <T : Ord> SortedSet <T> {
     let res = self.set.mutate_vec (f);
     self.set.dedup();
     res
+  }
+  /// The caller must ensure that the provided vector is already sorted and
+  /// deduped.
+  #[inline]
+  pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+    let set = unsafe { SortedVec::from_sorted(vec) };
+    SortedSet { set }
   }
   /// Unsafe access to the underlying vector. The caller must ensure that any
   /// changes to the values in the vector do not impact the ordering of the
