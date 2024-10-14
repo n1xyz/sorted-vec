@@ -520,6 +520,10 @@ impl <T : PartialOrd + Hash> Hash for ReverseSortedSet <T> {
 
 #[cfg(test)]
 mod tests {
+  // NOTE: some tests may break in future version of Rust: according to the
+  // documentation of binary_search, if there are multiple matches the index is
+  // chosen deterministically but is subject to change in future versions of
+  // Rust
   use super::*;
 
   #[test]
@@ -584,7 +588,7 @@ mod tests {
     assert_eq!(v.insert (4.0), 1);
     assert_eq!(v.find_or_insert (6.0), Err (0));
     assert_eq!(v.insert (4.0), 2);
-    assert_eq!(v.find_or_insert (4.0), Ok (2));
+    assert_eq!(v.find_or_insert (4.0), Ok (3));
     assert_eq!(v.len(), 5);
     v.dedup();
     assert_eq!(v.len(), 4);

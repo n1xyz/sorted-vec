@@ -570,6 +570,10 @@ pub type ReverseSortedSet<T> = SortedSet<std::cmp::Reverse<T>>;
 
 #[cfg(test)]
 mod tests {
+  // NOTE: some tests may break in future version of Rust: according to the
+  // documentation of binary_search, if there are multiple matches the index is
+  // chosen deterministically but is subject to change in future versions of
+  // Rust
   use super::*;
   use std::cmp::Reverse;
 
@@ -701,7 +705,7 @@ mod tests {
     assert_eq!(v.insert (Reverse(4)), 1);
     assert_eq!(v.find_or_insert (Reverse(6)), FindOrInsert::Inserted (0));
     assert_eq!(v.insert (Reverse(4)), 2);
-    assert_eq!(v.find_or_insert (Reverse(4)), FindOrInsert::Found (2));
+    assert_eq!(v.find_or_insert (Reverse(4)), FindOrInsert::Found (3));
     assert_eq!(v.len(), 5);
     v.dedup();
     assert_eq!(v.len(), 4);
