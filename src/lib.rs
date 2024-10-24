@@ -12,8 +12,6 @@
 //! `PartialOrd` where comparison of incomparable elements results in runtime
 //! panic.
 
-#![cfg_attr(feature = "serde", feature(is_sorted))]
-
 #[cfg(feature = "serde")]
 #[macro_use] extern crate serde;
 
