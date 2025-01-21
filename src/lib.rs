@@ -323,6 +323,20 @@ impl <T : Ord + Hash> Hash for SortedVec <T> {
     v.hash (state);
   }
 }
+impl <T : Ord> IntoIterator for SortedVec <T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.into_iter()
+    }
+}
+impl<'a, T: Ord> IntoIterator for &'a SortedVec<T> {
+  type Item = &'a T;
+  type IntoIter = std::slice::Iter<'a, T>;
+  fn into_iter(self) -> Self::IntoIter {
+      self.vec.iter()
+  }
+}
 
 //
 //  impl SortedSet
@@ -541,6 +555,20 @@ impl <T : Ord + Hash> Hash for SortedSet <T> {
   fn hash <H : Hasher> (&self, state : &mut H) {
     let v : &Vec <T> = self.as_ref();
     v.hash (state);
+  }
+}
+impl<T: Ord> IntoIterator for SortedSet<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.set.into_iter()
+    }
+}
+impl<'a, T: Ord> IntoIterator for &'a SortedSet<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.set.iter()
   }
 }
 
