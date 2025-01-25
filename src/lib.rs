@@ -324,17 +324,17 @@ impl <T : Ord + Hash> Hash for SortedVec <T> {
   }
 }
 impl <T : Ord> IntoIterator for SortedVec <T> {
-    type Item = T;
-    type IntoIter = std::vec::IntoIter<T>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.vec.into_iter()
-    }
+  type Item = T;
+  type IntoIter = std::vec::IntoIter<T>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.vec.into_iter()
+  }
 }
 impl<'a, T: Ord> IntoIterator for &'a SortedVec<T> {
   type Item = &'a T;
   type IntoIter = std::slice::Iter<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
-      self.vec.iter()
+    self.vec.iter()
   }
 }
 
