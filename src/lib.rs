@@ -221,6 +221,7 @@ impl <T : Ord> SortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -317,24 +318,31 @@ impl <T : Ord> Extend <T> for SortedVec <T> {
     }
   }
 }
-impl <T : Ord + Hash> Hash for SortedVec <T> {
-  fn hash <H : Hasher> (&self, state : &mut H) {
-    let v : &Vec <T> = self.as_ref();
-    v.hash (state);
+impl <T : Ord> FromIterator <T> for SortedVec <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = SortedVec::new();
+    s.extend (iter);
+    s
   }
 }
 impl <T : Ord> IntoIterator for SortedVec <T> {
   type Item = T;
-  type IntoIter = std::vec::IntoIter<T>;
-  fn into_iter(self) -> Self::IntoIter {
+  type IntoIter = std::vec::IntoIter <T>;
+  fn into_iter (self) -> Self::IntoIter {
     self.vec.into_iter()
   }
 }
-impl<'a, T: Ord> IntoIterator for &'a SortedVec<T> {
+impl <'a, T: Ord> IntoIterator for &'a SortedVec <T> {
   type Item = &'a T;
-  type IntoIter = std::slice::Iter<'a, T>;
-  fn into_iter(self) -> Self::IntoIter {
+  type IntoIter = std::slice::Iter <'a, T>;
+  fn into_iter (self) -> Self::IntoIter {
     self.vec.iter()
+  }
+}
+impl <T : Ord + Hash> Hash for SortedVec <T> {
+  fn hash <H : Hasher> (&self, state : &mut H) {
+    let v : &Vec <T> = self.as_ref();
+    v.hash (state);
   }
 }
 
@@ -444,6 +452,7 @@ impl <T : Ord> SortedSet <T> {
     self.set.clear()
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -480,7 +489,7 @@ impl <T : Ord> SortedSet <T> {
   /// changes to the values in the vector do not impact the ordering of the
   /// elements inside, or else this container will misbehave.
   pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
-    return self.set.get_unchecked_mut_vec();
+    return unsafe { self.set.get_unchecked_mut_vec() }
   }
 
   /// Perform deduplication and sorting on the input sequence when deserializing
@@ -551,24 +560,31 @@ impl <T : Ord> Extend <T> for SortedSet <T> {
     }
   }
 }
+impl <T : Ord> FromIterator <T> for SortedSet <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = SortedSet::new();
+    s.extend (iter);
+    s
+  }
+}
+impl <T : Ord> IntoIterator for SortedSet <T> {
+  type Item = T;
+  type IntoIter = std::vec::IntoIter <T>;
+  fn into_iter (self) -> Self::IntoIter {
+    self.set.into_iter()
+  }
+}
+impl <'a, T: Ord> IntoIterator for &'a SortedSet <T> {
+  type Item = &'a T;
+  type IntoIter = std::slice::Iter <'a, T>;
+  fn into_iter (self) -> Self::IntoIter {
+    self.set.iter()
+  }
+}
 impl <T : Ord + Hash> Hash for SortedSet <T> {
   fn hash <H : Hasher> (&self, state : &mut H) {
     let v : &Vec <T> = self.as_ref();
     v.hash (state);
-  }
-}
-impl<T: Ord> IntoIterator for SortedSet<T> {
-    type Item = T;
-    type IntoIter = std::vec::IntoIter<T>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.set.into_iter()
-    }
-}
-impl<'a, T: Ord> IntoIterator for &'a SortedSet<T> {
-    type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.set.iter()
   }
 }
 
@@ -632,6 +648,8 @@ mod tests {
     assert_eq!(
       v.drain(..).collect::<Vec <i32>>(),
       vec![-10, 1, 2, 10, 11, 17, 99]);
+    let v = SortedVec::from_iter ([5, -10, 99, -11, 2, 17, 10]);
+    assert_eq!(**v, [-11, -10, 2, 5, 10, 17, 99]);
   }
 
   #[test]
@@ -780,6 +798,9 @@ mod tests {
     assert_eq!(
       s.drain(..).collect::<Vec <Reverse<i32>>>(),
       Vec::from_iter ([99, 17, 10, 2, 1, -10].map (Reverse)));
+    let s = ReverseSortedSet::from_iter (
+      [5, -10, 2, 99, -11, -11, 2, 17, 10].map (Reverse));
+    assert_eq!(**s, [99, 17, 10, 5, 2, -10, -11].map (Reverse));
   }
   #[cfg(feature = "serde-nontransparent")]
   #[test]

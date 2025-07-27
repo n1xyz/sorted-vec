@@ -114,6 +114,7 @@ impl <T : PartialOrd> SortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -162,10 +163,11 @@ impl <T : PartialOrd> Extend <T> for SortedVec <T> {
     }
   }
 }
-impl <T : PartialOrd + Hash> Hash for SortedVec <T> {
-  fn hash <H : Hasher> (&self, state : &mut H) {
-    let v : &Vec <T> = self.as_ref();
-    v.hash (state);
+impl <T : PartialOrd> FromIterator <T> for SortedVec <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = SortedVec::new();
+    s.extend (iter);
+    s
   }
 }
 impl <T : Ord> IntoIterator for SortedVec <T> {
@@ -180,6 +182,12 @@ impl<'a, T: Ord> IntoIterator for &'a SortedVec<T> {
   type IntoIter = std::slice::Iter<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.vec.iter()
+  }
+}
+impl <T : PartialOrd + Hash> Hash for SortedVec <T> {
+  fn hash <H : Hasher> (&self, state : &mut H) {
+    let v : &Vec <T> = self.as_ref();
+    v.hash (state);
   }
 }
 
@@ -235,6 +243,7 @@ impl <T : PartialOrd> SortedSet <T> {
     self.set.clear()
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -284,10 +293,11 @@ impl <T : PartialOrd> Extend <T> for SortedSet <T> {
     }
   }
 }
-impl <T : PartialOrd + Hash> Hash for SortedSet <T> {
-  fn hash <H : Hasher> (&self, state : &mut H) {
-    let v : &Vec <T> = self.as_ref();
-    v.hash (state);
+impl <T : PartialOrd> FromIterator <T> for SortedSet <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = SortedSet::new();
+    s.extend (iter);
+    s
   }
 }
 impl<T: PartialOrd> IntoIterator for SortedSet<T> {
@@ -302,6 +312,12 @@ impl<'a, T: PartialOrd> IntoIterator for &'a SortedSet<T> {
   type IntoIter = std::slice::Iter<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.set.iter()
+  }
+}
+impl <T : PartialOrd + Hash> Hash for SortedSet <T> {
+  fn hash <H : Hasher> (&self, state : &mut H) {
+    let v : &Vec <T> = self.as_ref();
+    v.hash (state);
   }
 }
 
@@ -383,6 +399,7 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -429,6 +446,13 @@ impl <T : PartialOrd> Extend <T> for ReverseSortedVec <T> {
     for t in iter {
       let _ = self.insert (t);
     }
+  }
+}
+impl <T : PartialOrd> FromIterator <T> for ReverseSortedVec <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = ReverseSortedVec::new();
+    s.extend (iter);
+    s
   }
 }
 impl <T : PartialOrd + Hash> Hash for ReverseSortedVec <T> {
@@ -490,6 +514,7 @@ impl <T : PartialOrd> ReverseSortedSet <T> {
     self.set.clear()
   }
   #[inline]
+  #[allow(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -539,6 +564,13 @@ impl <T : PartialOrd> Extend <T> for ReverseSortedSet <T> {
     }
   }
 }
+impl <T : PartialOrd> FromIterator <T> for ReverseSortedSet <T> {
+  fn from_iter <I> (iter : I) -> Self where I : IntoIterator <Item=T> {
+    let mut s = ReverseSortedSet::new();
+    s.extend (iter);
+    s
+  }
+}
 impl <T : PartialOrd + Hash> Hash for ReverseSortedSet <T> {
   fn hash <H : Hasher> (&self, state : &mut H) {
     let v : &Vec <T> = self.as_ref();
@@ -577,6 +609,9 @@ mod tests {
     assert_eq!(
       v.drain(..).collect::<Vec <f32>>(),
       vec![-11.0, -10.0, 2.0, 5.0, 10.0, 17.0, 99.0]);
+    let v = SortedVec::from_iter (
+      [5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0]);
+    assert_eq!(**v, [-11.0, -10.0, 2.0, 5.0, 10.0, 17.0, 99.0]);
   }
 
   #[test]
@@ -606,6 +641,9 @@ mod tests {
     assert_eq!(
       s.drain(..).collect::<Vec <f32>>(),
       vec![-10.0, 2.0, 5.0, 10.0, 11.0, 17.0, 99.0]);
+    let s = SortedSet::from_iter (
+      [5.0, -11.0, -10.0, 99.0, -11.0, 2.0, 17.0, 2.0, 10.0]);
+    assert_eq!(***s, [-11.0, -10.0, 2.0, 5.0, 10.0, 17.0, 99.0]);
   }
 
   #[test]
@@ -632,6 +670,9 @@ mod tests {
     assert_eq!(
       v.drain(..).collect::<Vec <f32>>(),
       vec![99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
+    let v = ReverseSortedVec::from_iter (
+      [5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0]);
+    assert_eq!(**v, [99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
   }
 
   #[test]
@@ -661,5 +702,8 @@ mod tests {
     assert_eq!(
       s.drain(..).collect::<Vec <f32>>(),
       vec![99.0, 17.0, 10.0, 2.0, 1.0, -10.0]);
+    let s = ReverseSortedSet::from_iter(
+      [5.0, -10.0, 2.0, 99.0, -11.0, -11.0, 2.0, 17.0, 10.0]);
+    assert_eq!(***s, [99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
   }
 }
