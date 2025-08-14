@@ -1,4 +1,8 @@
 with import <nixpkgs> {};
 pkgs.mkShell {
-  buildInputs = [ rustup ];
+  buildInputs = [
+    rustup
+    rust-analyzer
+    yamllint
+  ];
 }
