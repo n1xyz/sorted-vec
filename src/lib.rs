@@ -132,10 +132,9 @@ impl <T : Ord> SortedVec <T> {
   /// Find the element and return the index with `Ok`, otherwise insert the
   /// element and return the new element index with `Err`.
   pub fn find_or_insert (&mut self, element : T) -> FindOrInsert {
-    self.binary_search (&element).map_err (|insert_at| {
-      self.vec.insert (insert_at, element);
-      insert_at
-    }).into()
+    self.binary_search (&element)
+      .inspect_err (|&insert_at| self.vec.insert (insert_at, element))
+      .into()
   }
   /// Same as insert, except performance is O(1) when the element belongs at the
   /// back of the container. This avoids an O(log(N)) search for inserting
@@ -148,17 +147,17 @@ impl <T : Ord> SortedVec <T> {
         // The new element is greater than or equal to the current last element,
         // so we can simply push it onto the vec.
         self.vec.push(element);
-        return self.vec.len() - 1;
+        self.vec.len() - 1
       } else {
         // The new element is less than the last element in the container, so we
         // cannot simply push. We will fall back on the normal insert behavior.
-        return self.insert(element);
+        self.insert(element)
       }
     } else {
       // If there is no last element then the container must be empty, so we
       // can simply push the element and return its index, which must be 0.
       self.vec.push(element);
-      return 0;
+      0
     }
   }
   /// Reserves additional capacity in the underlying vector.
@@ -173,20 +172,20 @@ impl <T : Ord> SortedVec <T> {
     if let Some(last) = self.vec.last() {
       let cmp = element.cmp(last);
       if cmp == std::cmp::Ordering::Equal {
-        return FindOrInsert::Found(self.vec.len() - 1);
+        FindOrInsert::Found(self.vec.len() - 1)
       } else if cmp == std::cmp::Ordering::Greater {
         self.vec.push(element);
-        return FindOrInsert::Inserted(self.vec.len() - 1);
+        FindOrInsert::Inserted(self.vec.len() - 1)
       } else {
         // The new element is less than the last element in the container, so we
         // need to fall back on the regular find_or_insert
-        return self.find_or_insert(element);
+        self.find_or_insert(element)
       }
     } else {
       // If there is no last element then the container must be empty, so we can
       // simply push the element and return that it was inserted.
       self.vec.push(element);
-      return FindOrInsert::Inserted(0);
+      FindOrInsert::Inserted(0)
     }
   }
   #[inline]
@@ -247,15 +246,30 @@ impl <T : Ord> SortedVec <T> {
     res
   }
   /// The caller must ensure that the provided vector is already sorted.
+  ///
+  /// # Safety
+  ///
+  /// There is a debug assertion that the input is sorted.
+  ///
+  /// ```should_panic
+  /// use sorted_vec::SortedSet;
+  /// let v = vec![4, 3, 2];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// ```
   #[inline]
   pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+    debug_assert!(vec.is_sorted());
     SortedVec { vec }
   }
   /// Unsafe access to the underlying vector. The caller must ensure that any
   /// changes to the values in the vector do not impact the ordering of the
   /// elements inside, or else this container will misbehave.
+  ///
+  /// # Safety
+  ///
+  /// Not safe.
   pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
-    return &mut self.vec;
+    &mut self.vec
   }
 
   /// Perform sorting on the input sequence when deserializing with `serde`.
@@ -404,23 +418,23 @@ impl <T : Ord> SortedSet <T> {
         // The new element is greater than the current last element, so we can
         // simply push it onto the vec.
         self.set.vec.push(element);
-        return (self.vec.len() - 1, None);
+        (self.vec.len() - 1, None)
       } else if cmp == std::cmp::Ordering::Equal {
         // The new element is equal to the last element, so we can simply return
         // the last index in the vec and the value that is being replaced.
         let original = self.set.vec.pop();
         self.set.vec.push(element);
-        return (self.vec.len() - 1, original);
+        (self.vec.len() - 1, original)
       } else {
         // The new element is less than the last element, so we need to fall
         // back on the regular insert function.
-        return self.replace(element);
+        self.replace(element)
       }
     } else {
       // If there is no last element then the container must be empty, so we can
       // simply push the element and return its index, which must be 0.
       self.set.vec.push(element);
-      return (0, None);
+      (0, None)
     }
   }
   /// Reserves additional capacity in the underlying vector.
@@ -478,18 +492,41 @@ impl <T : Ord> SortedSet <T> {
     self.set.dedup();
     res
   }
-  /// The caller must ensure that the provided vector is already sorted and
-  /// deduped.
+  /// The caller must ensure that the provided vector is already sorted and deduped.
+  ///
+  /// # Safety
+  ///
+  /// There will be debug assertions if the input is not sorted or deduped.
+  ///
+  /// ```should_panic
+  /// use sorted_vec::SortedSet;
+  /// let v = vec![4, 3, 2];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// ```
+  ///
+  /// ```should_panic
+  /// use sorted_vec::SortedSet;
+  /// let v = vec![1, 2, 3, 3, 4];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// ```
   #[inline]
   pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+    if cfg!(debug_assertions) {
+      let mut unique = std::collections::BTreeSet::new();
+      debug_assert!(vec.iter().all(|x| unique.insert(x)));
+    }
     let set = unsafe { SortedVec::from_sorted(vec) };
     SortedSet { set }
   }
   /// Unsafe access to the underlying vector. The caller must ensure that any
   /// changes to the values in the vector do not impact the ordering of the
   /// elements inside, or else this container will misbehave.
+  ///
+  /// # Safety
+  ///
+  /// Not safe.
   pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
-    return unsafe { self.set.get_unchecked_mut_vec() }
+    unsafe { self.set.get_unchecked_mut_vec() }
   }
 
   /// Perform deduplication and sorting on the input sequence when deserializing

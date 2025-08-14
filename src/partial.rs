@@ -71,10 +71,8 @@ impl <T : PartialOrd> SortedVec <T> {
   /// Partial order comparison panics if items are not comparable.
   #[inline]
   pub fn find_or_insert (&mut self, element : T) -> Result <usize, usize> {
-    self.binary_search (&element).map_err (|insert_at| {
-      self.vec.insert (insert_at, element);
-      insert_at
-    })
+    self.binary_search (&element)
+      .inspect_err (|&insert_at| self.vec.insert (insert_at, element))
   }
   #[inline]
   pub fn remove_item (&mut self, item : &T) -> Option <T> {
@@ -357,10 +355,8 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
   /// Partial order comparison panics if items are not comparable.
   #[inline]
   pub fn find_or_insert (&mut self, element : T) -> Result <usize, usize> {
-    self.binary_search (&element).map_err (|insert_at| {
-      self.vec.insert (insert_at, element);
-      insert_at
-    })
+    self.binary_search (&element)
+      .inspect_err (|&insert_at| self.vec.insert (insert_at, element))
   }
   #[inline]
   pub fn remove_item (&mut self, item : &T) -> Option <T> {
