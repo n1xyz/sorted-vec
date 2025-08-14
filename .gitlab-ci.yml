@@ -5,11 +5,13 @@ stages:
 variables:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
+  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
   paths:
     - target/
+    - .cargo/
 
 check:
   stage: check
