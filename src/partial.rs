@@ -168,17 +168,17 @@ impl <T : PartialOrd> FromIterator <T> for SortedVec <T> {
     s
   }
 }
-impl <T : Ord> IntoIterator for SortedVec <T> {
+impl <T : PartialOrd> IntoIterator for SortedVec <T> {
   type Item = T;
   type IntoIter = std::vec::IntoIter<T>;
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_iter (self) -> Self::IntoIter {
     self.vec.into_iter()
   }
 }
-impl<'a, T: Ord> IntoIterator for &'a SortedVec<T> {
+impl<'a, T : PartialOrd> IntoIterator for &'a SortedVec<T> {
   type Item = &'a T;
   type IntoIter = std::slice::Iter<'a, T>;
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_iter (self) -> Self::IntoIter {
     self.vec.iter()
   }
 }
@@ -298,17 +298,17 @@ impl <T : PartialOrd> FromIterator <T> for SortedSet <T> {
     s
   }
 }
-impl<T: PartialOrd> IntoIterator for SortedSet<T> {
+impl<T : PartialOrd> IntoIterator for SortedSet<T> {
   type Item = T;
   type IntoIter = std::vec::IntoIter<T>;
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_iter (self) -> Self::IntoIter {
     self.set.vec.into_iter()
   }
 }
-impl<'a, T: PartialOrd> IntoIterator for &'a SortedSet<T> {
+impl<'a, T : PartialOrd> IntoIterator for &'a SortedSet<T> {
   type Item = &'a T;
   type IntoIter = std::slice::Iter<'a, T>;
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_iter (self) -> Self::IntoIter {
     self.set.iter()
   }
 }

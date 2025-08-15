@@ -346,7 +346,7 @@ impl <T : Ord> IntoIterator for SortedVec <T> {
     self.vec.into_iter()
   }
 }
-impl <'a, T: Ord> IntoIterator for &'a SortedVec <T> {
+impl <'a, T : Ord> IntoIterator for &'a SortedVec <T> {
   type Item = &'a T;
   type IntoIter = std::slice::Iter <'a, T>;
   fn into_iter (self) -> Self::IntoIter {
@@ -611,7 +611,7 @@ impl <T : Ord> IntoIterator for SortedSet <T> {
     self.set.into_iter()
   }
 }
-impl <'a, T: Ord> IntoIterator for &'a SortedSet <T> {
+impl <'a, T : Ord> IntoIterator for &'a SortedSet <T> {
   type Item = &'a T;
   type IntoIter = std::slice::Iter <'a, T>;
   fn into_iter (self) -> Self::IntoIter {
