@@ -8,6 +8,7 @@ use std::hash::{Hash, Hasher};
 
 /// Forward sorted vector
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[expect(clippy::derive_partial_eq_without_eq)]
 pub struct SortedVec <T : PartialOrd> {
   vec : Vec <T>
 }
@@ -20,6 +21,7 @@ pub struct SortedSet <T : PartialOrd> {
 
 /// Reverse sorted vector
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[expect(clippy::derive_partial_eq_without_eq)]
 pub struct ReverseSortedVec <T : PartialOrd> {
   vec : Vec <T>
 }
@@ -41,7 +43,7 @@ fn partial_compare <T : PartialOrd> (lhs : &T, rhs : &T) -> std::cmp::Ordering {
 
 impl <T : PartialOrd> SortedVec <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     SortedVec { vec: Vec::new() }
   }
   #[inline]
@@ -112,7 +114,7 @@ impl <T : PartialOrd> SortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -122,7 +124,7 @@ impl <T : PartialOrd> SortedVec <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.vec.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref,
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref,
   /// use this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -195,7 +197,7 @@ impl <T : PartialOrd + Hash> Hash for SortedVec <T> {
 
 impl <T : PartialOrd> SortedSet <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     SortedSet { set: SortedVec::new() }
   }
   #[inline]
@@ -241,7 +243,7 @@ impl <T : PartialOrd> SortedSet <T> {
     self.set.clear()
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -251,7 +253,7 @@ impl <T : PartialOrd> SortedSet <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.set.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref, use
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref, use
   /// this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -325,7 +327,7 @@ impl <T : PartialOrd + Hash> Hash for SortedSet <T> {
 
 impl <T : PartialOrd> ReverseSortedVec <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     ReverseSortedVec { vec: Vec::new() }
   }
   #[inline]
@@ -395,7 +397,7 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -405,7 +407,7 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.vec.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref,
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref,
   /// use this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -464,7 +466,7 @@ impl <T : PartialOrd + Hash> Hash for ReverseSortedVec <T> {
 
 impl <T : PartialOrd> ReverseSortedSet <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     ReverseSortedSet { set: ReverseSortedVec::new() }
   }
   #[inline]
@@ -510,7 +512,7 @@ impl <T : PartialOrd> ReverseSortedSet <T> {
     self.set.clear()
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -520,7 +522,7 @@ impl <T : PartialOrd> ReverseSortedSet <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.set.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref, use
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref, use
   /// this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -583,7 +585,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_sorted_vec() {
+  fn sorted_vec() {
     let mut v = SortedVec::new();
     assert_eq!(v.insert (5.0), 0);
     assert_eq!(v.insert (3.0), 0);
@@ -601,7 +603,7 @@ mod tests {
       vec![  5.0, -10.0, 99.0, -11.0,  2.0, 17.0, 10.0]),
       vec![  5.0, -10.0, 99.0, -11.0,  2.0, 17.0, 10.0].into());
     let mut v = SortedVec::new();
-    v.extend(vec![5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0].into_iter());
+    v.extend(vec![5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0]);
     assert_eq!(
       v.drain(..).collect::<Vec <f32>>(),
       vec![-11.0, -10.0, 2.0, 5.0, 10.0, 17.0, 99.0]);
@@ -611,7 +613,7 @@ mod tests {
   }
 
   #[test]
-  fn test_sorted_set() {
+  fn sorted_set() {
     let mut s = SortedSet::new();
     assert_eq!(s.insert (5.0), 0);
     assert_eq!(s.insert (3.0), 0);
@@ -628,9 +630,9 @@ mod tests {
       vec![  5.0, -10.0, 99.0, -10.0, -11.0,  10.0, 2.0, 17.0, 10.0].into());
     let mut s = SortedSet::new();
     s.extend(
-      vec![5.0, -11.0, -10.0, 99.0, -11.0, 2.0, 17.0, 2.0, 10.0].into_iter());
+      vec![5.0, -11.0, -10.0, 99.0, -11.0, 2.0, 17.0, 2.0, 10.0]);
     assert_eq!(**s, vec![-11.0, -10.0, 2.0, 5.0, 10.0, 17.0, 99.0]);
-    let _ = s.mutate_vec (|s|{
+    let () = s.mutate_vec (|s|{
       s[0] = 5.0;
       s[3] = 11.0;
     });
@@ -643,7 +645,7 @@ mod tests {
   }
 
   #[test]
-  fn test_reverse_sorted_vec() {
+  fn reverse_sorted_vec() {
     let mut v = ReverseSortedVec::new();
     assert_eq!(v.insert (5.0), 0);
     assert_eq!(v.insert (3.0), 1);
@@ -662,7 +664,7 @@ mod tests {
       vec![5.0, -10.0, 99.0, -11.0, 2.0,  17.0,  10.0]),
       vec![5.0, -10.0, 99.0, -11.0, 2.0,  17.0,  10.0].into());
     let mut v = ReverseSortedVec::new();
-    v.extend(vec![5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0].into_iter());
+    v.extend(vec![5.0, -10.0, 99.0, -11.0, 2.0, 17.0, 10.0]);
     assert_eq!(
       v.drain(..).collect::<Vec <f32>>(),
       vec![99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
@@ -672,7 +674,7 @@ mod tests {
   }
 
   #[test]
-  fn test_reverse_sorted_set() {
+  fn reverse_sorted_set() {
     let mut s = ReverseSortedSet::new();
     assert_eq!(s.insert (5.0), 0);
     assert_eq!(s.insert (3.0), 1);
@@ -689,9 +691,9 @@ mod tests {
       vec![5.0, -10.0, 99.0, -11.0, 2.0,  17.0,  10.0, -10.0]),
       vec![5.0, -10.0, 99.0, -11.0, 2.0,  17.0,  10.0, -10.0].into());
     let mut s = ReverseSortedSet::new();
-    s.extend(vec![5.0, -10.0, 2.0, 99.0, -11.0, -11.0, 2.0, 17.0, 10.0].into_iter());
+    s.extend(vec![5.0, -10.0, 2.0, 99.0, -11.0, -11.0, 2.0, 17.0, 10.0]);
     assert_eq!(**s, vec![99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
-    let _ = s.mutate_vec (|s|{
+    let () = s.mutate_vec (|s|{
       s[6] = 17.0;
       s[3] = 1.0;
     });

@@ -19,10 +19,10 @@ check:
   stage: check
   image: rust:1.89
   before_script:
-    - rustup default stable
+    - rustup default 1.89
     - rustup component add clippy
   script:
-    - cargo clippy --all-features
+    - cargo clippy --all-targets --all-features
 
 test:
   stage: test

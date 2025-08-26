@@ -43,7 +43,7 @@ pub struct SortedSet <T : Ord> {
   set : SortedVec <T>
 }
 
-/// Value returned when find_or_insert is used.
+/// Value returned when `find_or_insert` is used.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum FindOrInsert {
   /// Contains a found index
@@ -53,7 +53,7 @@ pub enum FindOrInsert {
   Inserted(usize),
 }
 
-/// Converts from the binary_search result type into the FindOrInsert type
+/// Converts from the `binary_search` result type into the `FindOrInsert` type
 impl From<Result<usize, usize>> for FindOrInsert {
   fn from(result: Result<usize, usize>) -> Self {
     match result {
@@ -64,9 +64,8 @@ impl From<Result<usize, usize>> for FindOrInsert {
 }
 
 impl FindOrInsert {
-
   /// Get the index of the element that was either found or inserted.
-  pub fn index(&self) -> usize {
+  pub const fn index (&self) -> usize {
     match self {
       FindOrInsert::Found(value) | FindOrInsert::Inserted(value) => *value
     }
@@ -74,7 +73,7 @@ impl FindOrInsert {
 
   /// If an equivalent element was found in the container, get the value of
   /// its index. Otherwise get None.
-  pub fn found(&self) -> Option<usize> {
+  pub const fn found (&self) -> Option<usize> {
     match self {
       FindOrInsert::Found(value) => Some(*value),
       FindOrInsert::Inserted(_) => None
@@ -83,7 +82,7 @@ impl FindOrInsert {
 
   /// If the provided element was inserted into the container, get the value
   /// of its index. Otherwise get None.
-  pub fn inserted(&self) -> Option<usize> {
+  pub const fn inserted (&self) -> Option<usize> {
     match self {
       FindOrInsert::Found(_) => None,
       FindOrInsert::Inserted(value) => Some(*value)
@@ -91,12 +90,12 @@ impl FindOrInsert {
   }
 
   /// Returns true if the element was found.
-  pub fn is_found(&self) -> bool {
+  pub const fn is_found (&self) -> bool {
     matches!(self, FindOrInsert::Found(_))
   }
 
   /// Returns true if the element was inserted.
-  pub fn is_inserted(&self) -> bool {
+  pub const fn is_inserted (&self) -> bool {
     matches!(self, FindOrInsert::Inserted(_))
   }
 }
@@ -107,7 +106,7 @@ impl FindOrInsert {
 
 impl <T : Ord> SortedVec <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     SortedVec { vec: Vec::new() }
   }
   #[inline]
@@ -161,12 +160,12 @@ impl <T : Ord> SortedVec <T> {
     }
   }
   /// Reserves additional capacity in the underlying vector.
-  /// See std::vec::Vec::reserve.
+  /// See `std::vec::Vec::reserve`.
   #[inline]
   pub fn reserve(&mut self, additional: usize) {
     self.vec.reserve(additional);
   }
-  /// Same as find_or_insert, except performance is O(1) when the element
+  /// Same as `find_or_insert`, except performance is O(1) when the element
   /// belongs at the back of the container.
   pub fn find_or_push(&mut self, element: T) -> FindOrInsert {
     if let Some(last) = self.vec.last() {
@@ -220,7 +219,7 @@ impl <T : Ord> SortedVec <T> {
     self.vec.dedup_by_key (key);
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -230,7 +229,7 @@ impl <T : Ord> SortedVec <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.vec.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref, use
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref, use
   /// this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -268,7 +267,7 @@ impl <T : Ord> SortedVec <T> {
   /// # Safety
   ///
   /// Not safe.
-  pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
+  pub const unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
     &mut self.vec
   }
 
@@ -366,7 +365,7 @@ impl <T : Ord + Hash> Hash for SortedVec <T> {
 
 impl <T : Ord> SortedSet <T> {
   #[inline]
-  pub fn new() -> Self {
+  pub const fn new() -> Self {
     SortedSet { set: SortedVec::new() }
   }
   #[inline]
@@ -438,12 +437,12 @@ impl <T : Ord> SortedSet <T> {
     }
   }
   /// Reserves additional capacity in the underlying vector.
-  /// See std::vec::Vec::reserve.
+  /// See `std::vec::Vec::reserve`.
   #[inline]
   pub fn reserve(&mut self, additional: usize) {
     self.set.reserve(additional);
   }
-  /// Same as find_or_insert, except performance is O(1) when the element
+  /// Same as `find_or_insert`, except performance is O(1) when the element
   /// belongs at the back of the container.
   pub fn find_or_push(&mut self, element: T) -> FindOrInsert {
     self.set.find_or_insert(element)
@@ -466,7 +465,7 @@ impl <T : Ord> SortedSet <T> {
     self.set.clear()
   }
   #[inline]
-  #[allow(mismatched_lifetime_syntaxes)]
+  #[expect(mismatched_lifetime_syntaxes)]
   pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
     R : std::ops::RangeBounds <usize>
   {
@@ -476,7 +475,7 @@ impl <T : Ord> SortedSet <T> {
   pub fn retain <F> (&mut self, f : F) where F : FnMut (&T) -> bool {
     self.set.retain (f)
   }
-  /// NOTE: to_vec() is a slice method that is accessible through deref, use
+  /// NOTE: `to_vec()` is a slice method that is accessible through deref, use
   /// this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
@@ -511,6 +510,7 @@ impl <T : Ord> SortedSet <T> {
   /// ```
   #[inline]
   pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+    #[expect(clippy::debug_assert_with_mut_call)]
     if cfg!(debug_assertions) {
       let mut unique = std::collections::BTreeSet::new();
       debug_assert!(vec.iter().all(|x| unique.insert(x)));
@@ -525,7 +525,7 @@ impl <T : Ord> SortedSet <T> {
   /// # Safety
   ///
   /// Not safe.
-  pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
+  pub const unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
     unsafe { self.set.get_unchecked_mut_vec() }
   }
 
@@ -631,7 +631,7 @@ impl <T : Ord + Hash> Hash for SortedSet <T> {
 /// usual comparison.
 ///
 /// Note that objects going into the reverse container needs to be wrapped in
-/// std::cmp::Reverse.
+/// `std::cmp::Reverse`.
 ///
 /// # Examples
 ///
@@ -657,7 +657,7 @@ mod tests {
   use std::cmp::Reverse;
 
   #[test]
-  fn test_sorted_vec() {
+  fn sorted_vec() {
     let mut v = SortedVec::new();
     assert_eq!(v.insert (5), 0);
     assert_eq!(v.insert (3), 0);
@@ -676,9 +676,9 @@ mod tests {
       vec![5, -10, 99, -11, 2, 17, 10]),
       vec![5, -10, 99, -11, 2, 17, 10].into());
     let mut v = SortedVec::new();
-    v.extend(vec![5, -10, 99, -11, 2, 17, 10].into_iter());
+    v.extend(vec![5, -10, 99, -11, 2, 17, 10]);
     assert_eq!(*v, vec![-11, -10, 2, 5, 10, 17, 99]);
-    let _ = v.mutate_vec (|v|{
+    let () = v.mutate_vec (|v|{
       v[0] = 11;
       v[3] = 1;
     });
@@ -690,7 +690,7 @@ mod tests {
   }
 
   #[test]
-  fn test_sorted_vec_push() {
+  fn sorted_vec_push() {
     let mut v = SortedVec::new();
     assert_eq!(v.push (5), 0);
     assert_eq!(v.push (3), 0);
@@ -709,9 +709,9 @@ mod tests {
       vec![5, -10, 99, -11, 2, 17, 10]),
       vec![5, -10, 99, -11, 2, 17, 10].into());
     let mut v = SortedVec::new();
-    v.extend(vec![5, -10, 99, -11, 2, 17, 10].into_iter());
+    v.extend(vec![5, -10, 99, -11, 2, 17, 10]);
     assert_eq!(*v, vec![-11, -10, 2, 5, 10, 17, 99]);
-    let _ = v.mutate_vec (|v|{
+    let () = v.mutate_vec (|v|{
       v[0] = 11;
       v[3] = 1;
     });
@@ -721,7 +721,7 @@ mod tests {
   }
 
   #[test]
-  fn test_sorted_set() {
+  fn sorted_set() {
     let mut s = SortedSet::new();
     assert_eq!(s.replace (5), (0, None));
     assert_eq!(s.replace (3), (0, None));
@@ -738,9 +738,9 @@ mod tests {
       vec![5, -10, 99, -10, -11, 10, 2, 17, 10]),
       vec![5, -10, 99, -10, -11, 10, 2, 17, 10].into());
     let mut s = SortedSet::new();
-    s.extend(vec![5, -11, -10, 99, -11, 2, 17, 2, 10].into_iter());
+    s.extend(vec![5, -11, -10, 99, -11, 2, 17, 2, 10]);
     assert_eq!(**s, vec![-11, -10, 2, 5, 10, 17, 99]);
-    let _ = s.mutate_vec (|s|{
+    let () = s.mutate_vec (|s|{
       s[0] = 5;
       s[3] = 1;
     });
@@ -750,7 +750,7 @@ mod tests {
   }
 
   #[test]
-  fn test_sorted_set_push() {
+  fn sorted_set_push() {
     let mut s = SortedSet::new();
     assert_eq!(s.push (5), (0, None));
     assert_eq!(s.push (3), (0, None));
@@ -767,9 +767,9 @@ mod tests {
       vec![5, -10, 99, -10, -11, 10, 2, 17, 10]),
       vec![5, -10, 99, -10, -11, 10, 2, 17, 10].into());
     let mut s = SortedSet::new();
-    s.extend(vec![5, -11, -10, 99, -11, 2, 17, 2, 10].into_iter());
+    s.extend(vec![5, -11, -10, 99, -11, 2, 17, 2, 10]);
     assert_eq!(**s, vec![-11, -10, 2, 5, 10, 17, 99]);
-    let _ = s.mutate_vec (|s|{
+    let () = s.mutate_vec (|s|{
       s[0] = 5;
       s[3] = 1;
     });
@@ -779,7 +779,7 @@ mod tests {
   }
 
   #[test]
-  fn test_reverse_sorted_vec() {
+  fn reverse_sorted_vec() {
     let mut v = ReverseSortedVec::new();
     assert_eq!(v.insert (Reverse(5)), 0);
     assert_eq!(v.insert (Reverse(3)), 1);
@@ -799,7 +799,7 @@ mod tests {
     let mut v = ReverseSortedVec::new();
     v.extend([5, -10, 99, -11, 2, 17, 10].map (Reverse));
     assert_eq!(v.as_slice(), [99, 17, 10, 5, 2, -10, -11].map (Reverse));
-    let _ = v.mutate_vec (|v|{
+    let () = v.mutate_vec (|v|{
       v[6] = Reverse(11);
       v[3] = Reverse(1);
     });
@@ -809,7 +809,7 @@ mod tests {
   }
 
   #[test]
-  fn test_reverse_sorted_set() {
+  fn reverse_sorted_set() {
     let mut s = ReverseSortedSet::new();
     assert_eq!(s.replace (Reverse(5)), (0, None));
     assert_eq!(s.replace (Reverse(3)), (1, None));
@@ -828,7 +828,7 @@ mod tests {
     let mut s = ReverseSortedSet::new();
     s.extend([5, -10, 2, 99, -11, -11, 2, 17, 10].map (Reverse));
     assert_eq!(s.as_slice(), [99, 17, 10, 5, 2, -10, -11].map (Reverse));
-    let _ = s.mutate_vec (|s|{
+    let () = s.mutate_vec (|s|{
       s[6] = Reverse(17);
       s[3] = Reverse(1);
     });
@@ -841,53 +841,53 @@ mod tests {
   }
   #[cfg(feature = "serde-nontransparent")]
   #[test]
-  fn test_deserialize() {
+  fn deserialize() {
     let s = r#"{"vec":[-11,-10,2,5,10,17,99]}"#;
     let _ = serde_json::from_str::<SortedVec <i32>> (s).unwrap();
   }
   #[cfg(all(feature = "serde", not(feature = "serde-nontransparent")))]
   #[test]
-  fn test_deserialize() {
+  fn deserialize() {
     let s = "[-11,-10,2,5,10,17,99]";
     let _ = serde_json::from_str::<SortedVec <i32>> (s).unwrap();
   }
   #[cfg(feature = "serde-nontransparent")]
   #[test]
   #[should_panic]
-  fn test_deserialize_unsorted() {
+  fn deserialize_unsorted() {
     let s = r#"{"vec":[99,-11,-10,2,5,10,17]}"#;
     let _ = serde_json::from_str::<SortedVec <i32>> (s).unwrap();
   }
   #[cfg(all(feature = "serde", not(feature = "serde-nontransparent")))]
   #[test]
   #[should_panic]
-  fn test_deserialize_unsorted() {
+  fn deserialize_unsorted() {
     let s = "[99,-11,-10,2,5,10,17]";
     let _ = serde_json::from_str::<SortedVec <i32>> (s).unwrap();
   }
   #[cfg(feature = "serde-nontransparent")]
   #[test]
-  fn test_deserialize_reverse() {
+  fn deserialize_reverse() {
     let s = r#"{"vec":[99,17,10,5,2,-10,-11]}"#;
     let _ = serde_json::from_str::<ReverseSortedVec <i32>> (s).unwrap();
   }
   #[cfg(all(feature = "serde", not(feature = "serde-nontransparent")))]
   #[test]
-  fn test_deserialize_reverse() {
+  fn deserialize_reverse() {
     let s = "[99,17,10,5,2,-10,-11]";
     let _ = serde_json::from_str::<ReverseSortedVec <i32>> (s).unwrap();
   }
   #[cfg(feature = "serde-nontransparent")]
   #[test]
   #[should_panic]
-  fn test_deserialize_reverse_unsorted() {
-    let s = r#"{vec:[99,-11,-10,2,5,10,17]}"#;
+  fn deserialize_reverse_unsorted() {
+    let s = r#"{"vec":[99,-11,-10,2,5,10,17]}"#;
     let _ = serde_json::from_str::<ReverseSortedVec <i32>> (s).unwrap();
   }
   #[cfg(all(feature = "serde", not(feature = "serde-nontransparent")))]
   #[test]
   #[should_panic]
-  fn test_deserialize_reverse_unsorted() {
+  fn deserialize_reverse_unsorted() {
     let s = "[99,-11,-10,2,5,10,17]";
     let _ = serde_json::from_str::<ReverseSortedVec <i32>> (s).unwrap();
   }
