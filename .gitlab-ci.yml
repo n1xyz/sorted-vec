@@ -1,31 +1,7 @@
-stages:
-  - check
-  - test
+include:
+  - project: 'spearman/ci-templates'
+    file: 'templates/rust.yml'
 
 variables:
-  CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
-  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
-  RUSTUP_HOME: "${CI_PROJECT_DIR}/.rustup"
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - target/
-    - .cargo/
-    - .rustup/
-
-check:
-  stage: check
-  image: rust:1.89
-  before_script:
-    - rustup default 1.89
-    - rustup component add clippy
-  script:
-    - cargo clippy --all-targets --all-features
-
-test:
-  stage: test
-  image: rust:1.89
-  script:
-    - cargo test --all-features
+  RUST_CI_IMAGE: "rust:1.89"
+  RUST_CI_TOOLCHAIN: "1.89"
