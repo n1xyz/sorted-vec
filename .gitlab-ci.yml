@@ -4,4 +4,4 @@ include:
 
 variables:
   RUST_CI_IMAGE: "rust:1.89"
-  RUST_CI_TOOLCHAIN: "1.89"
+  RUSTUP_TOOLCHAIN: "1.89"

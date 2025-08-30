@@ -21,11 +21,14 @@ serde-nontransparent = ["serde"]
 name = "serde"
 required-features = ["serde"]
 
+[lints.rust]
+unknown-lints = "deny"
+
 [lints.clippy]
 disallowed-names = "allow"
 empty-line-after-doc-comments = "allow"
 len-zero = "allow"
-manual-is-multiple-of = "allow"
+#manual-is-multiple-of = "allow"  # lint not available in stable 1.89
 single-component-path-imports = "allow"
 single-match = "allow"
 # additional warnings
@@ -41,7 +44,7 @@ cloned-instead-of-copied = "warn"
 collection-is-never-read = "warn"
 debug-assert-with-mut-call = "warn"
 derive-partial-eq-without-eq = "warn"
-doc-broken-link = "warn"
+#doc-broken-link = "warn"   # lint not available in stable 1.89
 doc-include-without-cfg = "warn"
 doc-link-code = "warn"
 doc-link-with-quotes = "warn"
