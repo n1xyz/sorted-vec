@@ -251,12 +251,12 @@ impl <T : Ord> SortedVec <T> {
   /// There is a debug assertion that the input is sorted.
   ///
   /// ```should_panic
-  /// use sorted_vec::SortedSet;
+  /// use sorted_vec::SortedVec;
   /// let v = vec![4, 3, 2];
-  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// let _s = unsafe { SortedVec::from_sorted(v) };  // panic!
   /// ```
   #[inline]
-  pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+  pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
     debug_assert!(vec.is_sorted());
     SortedVec { vec }
   }
@@ -509,7 +509,7 @@ impl <T : Ord> SortedSet <T> {
   /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
   /// ```
   #[inline]
-  pub unsafe fn from_sorted(vec: Vec<T>) -> Self {
+  pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
     #[expect(clippy::debug_assert_with_mut_call)]
     if cfg!(debug_assertions) {
       let mut unique = std::collections::BTreeSet::new();

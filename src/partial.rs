@@ -139,6 +139,22 @@ impl <T : PartialOrd> SortedVec <T> {
     self.vec.sort_unstable_by (partial_compare);
     res
   }
+  /// The caller must ensure that the provided vector is already sorted.
+  ///
+  /// # Safety
+  ///
+  /// There is a debug assertion that the input is sorted.
+  ///
+  /// ```should_panic
+  /// use sorted_vec::partial::SortedVec;
+  /// let v = vec![4.0, 3.0, 2.0];
+  /// let _s = unsafe { SortedVec::from_sorted(v) };  // panic!
+  /// ```
+  #[inline]
+  pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
+    debug_assert!(vec.is_sorted());
+    SortedVec { vec }
+  }
 }
 impl <T : PartialOrd> Default for SortedVec <T> {
   fn default() -> Self {
@@ -268,6 +284,40 @@ impl <T : PartialOrd> SortedSet <T> {
     let res = self.set.mutate_vec (f);
     self.set.dedup();
     res
+  }
+  /// The caller must ensure that the provided vector is already sorted and deduped.
+  ///
+  /// # Safety
+  ///
+  /// Not safe.
+  ///
+  /// ## Panics
+  ///
+  /// There will be debug assertions if the input is not sorted or deduped.
+  ///
+  /// ```should_panic
+  /// use sorted_vec::partial::SortedSet;
+  /// let v = vec![4.0, 3.0, 2.0];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// ```
+  ///
+  /// ```should_panic
+  /// use sorted_vec::partial::SortedSet;
+  /// let v = vec![1.0, 2.0, 3.0, 3.0, 4.0];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };  // panic!
+  /// ```
+  #[inline]
+  pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
+    let set = unsafe { SortedVec::from_sorted(vec) };
+    if cfg!(debug_assertions) {
+      for i in 0..set.len()-1 {
+        #[expect(clippy::manual_assert)]   // T is not Debug, can't use assert
+        if set[i] != set[i+1] {
+          panic!("input contains duplicates")
+        }
+      }
+    }
+    SortedSet { set }
   }
 }
 impl <T : PartialOrd> Default for SortedSet <T> {
