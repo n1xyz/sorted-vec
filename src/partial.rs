@@ -287,11 +287,17 @@ impl <T : PartialOrd> SortedSet <T> {
   }
   /// The caller must ensure that the provided vector is already sorted and deduped.
   ///
+  /// ```
+  /// use sorted_vec::partial::SortedSet;
+  /// let v = vec![1.0, 2.0, 3.0, 4.0];
+  /// let _s = unsafe { SortedSet::from_sorted(v) };
+  /// ```
+  ///
   /// # Safety
   ///
   /// Not safe.
   ///
-  /// ## Panics
+  /// # Panics
   ///
   /// There will be debug assertions if the input is not sorted or deduped.
   ///
@@ -312,7 +318,7 @@ impl <T : PartialOrd> SortedSet <T> {
     if cfg!(debug_assertions) {
       for i in 0..set.len()-1 {
         #[expect(clippy::manual_assert)]   // T is not Debug, can't use assert
-        if set[i] != set[i+1] {
+        if set[i] == set[i+1] {
           panic!("input contains duplicates")
         }
       }

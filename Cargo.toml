@@ -1,6 +1,6 @@
 [package]
 name = "sorted-vec"
-version = "0.8.9"
+version = "0.8.10"
 authors = ["Shane Pearman <spearman@gitlab.com>"]
 license = "Apache-2.0"
 description = "Create and maintain sorted vectors and vector-backed sets"
