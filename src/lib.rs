@@ -54,11 +54,11 @@ pub enum FindOrInsert {
 }
 
 /// Converts from the `binary_search` result type into the `FindOrInsert` type
-impl From<Result<usize, usize>> for FindOrInsert {
-  fn from(result: Result<usize, usize>) -> Self {
+impl From <Result <usize, usize>> for FindOrInsert {
+  fn from (result : Result<usize, usize>) -> Self {
     match result {
-      Result::Ok(value) => FindOrInsert::Found(value),
-      Result::Err(value) => FindOrInsert::Inserted(value),
+      Ok  (value) => FindOrInsert::Found    (value),
+      Err (value) => FindOrInsert::Inserted (value),
     }
   }
 }
