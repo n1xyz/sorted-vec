@@ -1,5 +1,18 @@
 # `sorted_vec`
 
+[![Latest Version]][crates.io] [![Rust Version]][Rust 1.85] [![License]][license-file] [![Documentation]][docs] [![Build Status]][pipelines]
+
+[Latest Version]: https://img.shields.io/crates/v/sorted-vec.svg
+[crates.io]: https://crates.io/crates/sorted-vec
+[Rust Version]: https://img.shields.io/crates/msrv/sorted-vec.svg
+[Rust 1.85]: https://blog.rust-lang.org/2025/03/18/Rust-1.85.1/
+[License]: https://img.shields.io/crates/l/sorted-vec.svg
+[license-file]: https://gitlab.com/spearman/sorted-vec/-/blob/master/LICENSE
+[Documentation]: https://docs.rs/sorted-vec/badge.svg
+[docs]: https://docs.rs/sorted-vec
+[Build Status]: https://gitlab.com/spearman/sorted-vec/badges/master/pipeline.svg
+[pipelines]: https://gitlab.com/spearman/sorted-vec/-/pipelines
+
 > Create and maintain collections of sorted elements.
 
 [Documentation](https://docs.rs/sorted-vec)

@@ -1,12 +1,13 @@
 [package]
 name = "sorted-vec"
-version = "0.8.10"
+version = "0.8.11"
 authors = ["Shane Pearman <spearman@gitlab.com>"]
 license = "Apache-2.0"
 description = "Create and maintain sorted vectors and vector-backed sets"
 repository = "https://gitlab.com/spearman/sorted-vec"
 readme = "README.md"
 edition = "2024"
+rust-version = "1.85.1"
 
 [dependencies]
 serde = { version = "1.*", features = [ "derive" ], optional = true }
