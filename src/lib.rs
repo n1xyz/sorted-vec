@@ -16,6 +16,8 @@
 #[macro_use] extern crate serde;
 
 use std::hash::{Hash, Hasher};
+#[cfg(feature = "borsh")]
+use core::mem::size_of;
 
 pub mod partial;
 
@@ -23,6 +25,11 @@ pub mod partial;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(all(feature = "serde", not(feature = "serde-nontransparent")),
   serde(transparent))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
+#[cfg_attr(feature = "borsh_schema", derive(borsh::BorshSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(all(feature = "schemars", not(feature = "serde-nontransparent")),
+  schemars(transparent))]
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SortedVec <T : Ord> {
   #[cfg_attr(feature = "serde", serde(deserialize_with = "SortedVec::parse_vec"))]
@@ -35,6 +42,11 @@ pub struct SortedVec <T : Ord> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(all(feature = "serde", not(feature = "serde-nontransparent")),
   serde(transparent))]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
+#[cfg_attr(feature = "borsh_schema", derive(borsh::BorshSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(all(feature = "schemars", not(feature = "serde-nontransparent")),
+  schemars(transparent))]
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SortedSet <T : Ord> {
   #[cfg_attr(feature = "serde", serde(deserialize_with = "SortedSet::parse_vec"))]
@@ -308,6 +320,72 @@ impl <T : Ord> SortedVec <T> {
     }
   }
 }
+#[cfg(feature = "borsh")]
+impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedVec <T> {
+  fn deserialize_reader <R : borsh::io::Read> (reader : &mut R)
+    -> borsh::io::Result <Self>
+  {
+    const {
+      assert!(
+        size_of::<T>() != 0,
+        "Collections of zero-sized types are not allowed due to deny-of-service concerns on deserialization."
+      );
+    }
+    let len = u32::deserialize_reader (reader)?;
+    if len == 0 {
+      return Ok (SortedVec { vec: Vec::new() });
+    }
+    let el_size = size_of::<T>();
+    let cap = core::cmp::max (
+      core::cmp::min (usize::try_from (len).unwrap_or (usize::MAX), 4096 / el_size),
+      1
+    );
+    let mut vec = Vec::with_capacity (cap);
+
+    let first = T::deserialize_reader (reader)?;
+    vec.push (first);
+
+    for _ in 1..len {
+      let item = T::deserialize_reader (reader)?;
+      if vec.last().unwrap() > &item {
+        return Err (borsh::io::Error::new (
+          borsh::io::ErrorKind::InvalidData,
+          "input sequence is not sorted"
+        ));
+      }
+      vec.push (item);
+    }
+    Ok (SortedVec { vec })
+  }
+}
+#[cfg(feature = "proptest")]
+impl <T : Ord + proptest::arbitrary::Arbitrary + 'static> proptest::arbitrary::Arbitrary for SortedVec <T> {
+  type Parameters = (proptest::collection::SizeRange, T::Parameters);
+  type Strategy = proptest::strategy::BoxedStrategy <Self>;
+
+  fn arbitrary_with (args : Self::Parameters) -> Self::Strategy {
+    use proptest::strategy::Strategy;
+    let (range, elem_params) = args;
+    proptest::collection::vec (proptest::arbitrary::any_with::<T> (elem_params), range)
+      .prop_map (SortedVec::from_unsorted)
+      .boxed()
+  }
+}
+#[cfg(feature = "arbitrary")]
+impl <'a, T : arbitrary::Arbitrary <'a> + Ord> arbitrary::Arbitrary <'a> for SortedVec <T> {
+  fn arbitrary (u : &mut arbitrary::Unstructured <'a>) -> arbitrary::Result <Self> {
+    u.arbitrary_iter()?.collect()
+  }
+
+  fn arbitrary_take_rest (u : arbitrary::Unstructured <'a>) -> arbitrary::Result <Self> {
+    u.arbitrary_take_rest_iter()?.collect()
+  }
+
+  #[inline]
+  fn size_hint (_depth : usize) -> (usize, Option <usize>) {
+    (0, None)
+  }
+}
 impl <T : Ord> Default for SortedVec <T> {
   fn default() -> Self {
     Self::new()
@@ -572,6 +650,75 @@ impl <T : Ord> SortedSet <T> {
     } else {
       Ok (SortedVec { vec })
     }
+  }
+}
+#[cfg(feature = "borsh")]
+impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedSet <T> {
+  fn deserialize_reader <R : borsh::io::Read> (reader : &mut R)
+    -> borsh::io::Result <Self>
+  {
+    const {
+      assert!(
+        size_of::<T>() != 0,
+        "Collections of zero-sized types are not allowed due to deny-of-service concerns on deserialization."
+      );
+    }
+    let len = u32::deserialize_reader (reader)?;
+    if len == 0 {
+      return Ok (SortedSet { set: SortedVec { vec: Vec::new() } });
+    }
+    let el_size = size_of::<T>();
+    let cap = core::cmp::max (
+      core::cmp::min (usize::try_from (len).unwrap_or (usize::MAX), 4096 / el_size),
+      1
+    );
+    let mut vec = Vec::with_capacity (cap);
+
+    let first = T::deserialize_reader (reader)?;
+    vec.push (first);
+
+    for _ in 1..len {
+      let item = T::deserialize_reader (reader)?;
+      let last = vec.last().unwrap();
+      if last >= &item {
+        return Err (borsh::io::Error::new (
+          borsh::io::ErrorKind::InvalidData,
+          "input set is not sorted or not unique"
+        ));
+      }
+      vec.push (item);
+    }
+    Ok (SortedSet { set: SortedVec { vec } })
+  }
+}
+#[cfg(feature = "proptest")]
+impl <T : Ord + proptest::arbitrary::Arbitrary + 'static> proptest::arbitrary::Arbitrary for SortedSet <T> {
+  type Parameters = (proptest::collection::SizeRange, T::Parameters);
+  type Strategy = proptest::strategy::BoxedStrategy <Self>;
+
+  fn arbitrary_with (args : Self::Parameters) -> Self::Strategy {
+    use proptest::strategy::Strategy;
+    let (range, elem_params) = args;
+    let min_size = range.start();
+    proptest::collection::vec (proptest::arbitrary::any_with::<T> (elem_params), range)
+      .prop_map (SortedSet::from_unsorted)
+      .prop_filter ("SortedSet minimum size", move |set| set.len() >= min_size)
+      .boxed()
+  }
+}
+#[cfg(feature = "arbitrary")]
+impl <'a, T : arbitrary::Arbitrary <'a> + Ord> arbitrary::Arbitrary <'a> for SortedSet <T> {
+  fn arbitrary (u : &mut arbitrary::Unstructured <'a>) -> arbitrary::Result <Self> {
+    u.arbitrary_iter()?.collect()
+  }
+
+  fn arbitrary_take_rest (u : arbitrary::Unstructured <'a>) -> arbitrary::Result <Self> {
+    u.arbitrary_take_rest_iter()?.collect()
+  }
+
+  #[inline]
+  fn size_hint (_depth : usize) -> (usize, Option <usize>) {
+    (0, None)
   }
 }
 impl <T : Ord> Default for SortedSet <T> {
@@ -890,5 +1037,93 @@ mod tests {
   fn deserialize_reverse_unsorted() {
     let s = "[99,-11,-10,2,5,10,17]";
     let _ = serde_json::from_str::<ReverseSortedVec <i32>> (s).unwrap();
+  }
+  #[cfg(all(feature = "schemars", not(feature = "serde-nontransparent")))]
+  #[test]
+  fn schemars_schema() {
+    let schema_vec = schemars::schema_for!(SortedVec<i32>);
+    let json_vec = serde_json::to_value(&schema_vec).unwrap();
+    assert_eq!(json_vec["type"], "array");
+    assert_eq!(json_vec["items"]["type"], "integer");
+
+    let schema_set = schemars::schema_for!(SortedSet<i32>);
+    let json_set = serde_json::to_value(&schema_set).unwrap();
+    assert_eq!(json_set["$defs"]["SortedVec"]["type"], "array");
+    assert_eq!(json_set["$defs"]["SortedVec"]["items"]["type"], "integer");
+  }
+  #[cfg(all(feature = "schemars", feature = "serde-nontransparent"))]
+  #[test]
+  fn schemars_schema_nontransparent() {
+    let schema_vec = schemars::schema_for!(SortedVec<i32>);
+    let json_vec = serde_json::to_value(&schema_vec).unwrap();
+    assert_eq!(json_vec["type"], "object");
+    assert_eq!(json_vec["properties"]["vec"]["type"], "array");
+
+    let schema_set = schemars::schema_for!(SortedSet<i32>);
+    let json_set = serde_json::to_value(&schema_set).unwrap();
+    assert_eq!(json_set["type"], "object");
+  }
+  #[cfg(feature = "borsh")]
+  #[test]
+  fn borsh_serialize_deserialize() {
+    let raw: Vec<i32> = vec![-11, -10, 2, 5, 10, 17, 99];
+    let v = SortedVec::from_unsorted(vec![5, -10, 99, -11, 2, 17, 10]);
+    let serialized_v = borsh::to_vec(&v).unwrap();
+    assert_eq!(serialized_v, borsh::to_vec(&raw).unwrap());
+
+    let deserialized_v = borsh::from_slice::<SortedVec<i32>>(&serialized_v).unwrap();
+    assert_eq!(deserialized_v, v);
+
+    let s = SortedSet::from_unsorted(vec![5, -10, 99, -11, 2, 17, 10, 5, 2]);
+    let serialized_s = borsh::to_vec(&s).unwrap();
+    assert_eq!(serialized_s, borsh::to_vec(&raw).unwrap());
+
+    let deserialized_s = borsh::from_slice::<SortedSet<i32>>(&serialized_s).unwrap();
+    assert_eq!(deserialized_s, s);
+
+    let unsorted_raw: Vec<i32> = vec![5, -10, 99];
+    let unsorted_bytes = borsh::to_vec(&unsorted_raw).unwrap();
+    borsh::from_slice::<SortedVec<i32>>(&unsorted_bytes).unwrap_err();
+    borsh::from_slice::<SortedSet<i32>>(&unsorted_bytes).unwrap_err();
+
+    let duplicate_raw: Vec<i32> = vec![1, 1, 2];
+    let duplicate_bytes = borsh::to_vec(&duplicate_raw).unwrap();
+    borsh::from_slice::<SortedVec<i32>>(&duplicate_bytes).unwrap();
+    borsh::from_slice::<SortedSet<i32>>(&duplicate_bytes).unwrap_err();
+  }
+  #[cfg(feature = "proptest")]
+  proptest::proptest! {
+    #[test]
+    fn sorted_vec_proptest(v in proptest::arbitrary::any::<SortedVec<i32>>()) {
+      proptest::prop_assert!(v.as_slice().is_sorted());
+    }
+
+    #[test]
+    fn sorted_set_proptest(s in proptest::arbitrary::any::<SortedSet<i32>>()) {
+      proptest::prop_assert!(s.as_slice().is_sorted());
+      for pair in s.as_slice().windows(2) {
+        if let &[a, b] = pair {
+          proptest::prop_assert!(a < b);
+        }
+      }
+    }
+  }
+  #[cfg(feature = "arbitrary")]
+  #[test]
+  fn arbitrary_generation() {
+    use arbitrary::Arbitrary;
+    let bytes = [10, 20, 5, 20, 30, 40, 15, 25, 0, 1, 2, 3];
+    let mut u = arbitrary::Unstructured::new(&bytes);
+    let v = SortedVec::<i32>::arbitrary(&mut u).unwrap();
+    assert!(v.as_slice().is_sorted());
+
+    let mut u = arbitrary::Unstructured::new(&bytes);
+    let s = SortedSet::<i32>::arbitrary(&mut u).unwrap();
+    assert!(s.as_slice().is_sorted());
+    for pair in s.as_slice().windows(2) {
+      if let &[a, b] = pair {
+        assert!(a < b);
+      }
+    }
   }
 }
