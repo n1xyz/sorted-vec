@@ -7,9 +7,12 @@ description = "Create and maintain sorted vectors and vector-backed sets"
 repository = "https://gitlab.com/spearman/sorted-vec"
 readme = "README.md"
 edition = "2024"
-rust-version = "1.85.1"
+rust-version = "1.89"
 
 [dependencies]
+# kitness uses the konst 0.4 comparison API but declares a wildcard dependency.
+konst = "0.4.3"
+const-bounded-collections = { git = "https://github.com/dzmitry-lahoda/const-bounded-collections", rev = "b466eca0c0504674605526f3f503cd2e04896ad6", features = ["panic"] }
 arbitrary = { version = "1.*", optional = true }
 borsh = { version = "1.*", features = [ "derive" ], optional = true }
 proptest = { version = "1.*", optional = true }
@@ -26,6 +29,7 @@ borsh = ["dep:borsh"]
 borsh_schema = ["borsh", "borsh/unstable__schema"]
 proptest = ["dep:proptest"]
 schemars = ["dep:schemars"]
+serde = ["dep:serde", "const-bounded-collections/serde"]
 serde-nontransparent = ["serde"]
 
 [[example]]
