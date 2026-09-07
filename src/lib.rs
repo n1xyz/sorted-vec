@@ -15,11 +15,21 @@
 #[cfg(feature = "serde")]
 #[macro_use] extern crate serde;
 
-use std::hash::{Hash, Hasher};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use core::hash::{Hash, Hasher};
 #[cfg(feature = "borsh")]
 use core::mem::size_of;
 
+use const_bounded_collections::{BoundedVec, witnesses::Empty};
+
 pub mod partial;
+
+fn bound_vec<T>(vec: Vec<T>) -> BoundedVec<T, 0, { usize::MAX }, Empty<{ usize::MAX }>> {
+  // Every Vec length is representable by these bounds.
+  vec.try_into().expect("Vec length fits usize::MAX")
+}
 
 /// Forward sorted vector
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -35,7 +45,31 @@ pub struct SortedVec <T : Ord> {
   #[cfg_attr(feature = "serde", serde(deserialize_with = "SortedVec::parse_vec"))]
   #[cfg_attr(feature = "serde",
     serde(bound(deserialize = "T : serde::Deserialize <'de>")))]
-  vec : Vec <T>
+  #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_vec", bound(serialize = "T: serde::Serialize")))]
+  #[cfg_attr(feature = "schemars", schemars(with = "Vec<T>"))]
+  #[cfg_attr(feature = "borsh", borsh(serialize_with = "serialize_vec_borsh"))]
+  #[cfg_attr(feature = "borsh_schema", borsh(schema(with_funcs(
+    declaration = "<Vec<T> as borsh::BorshSchema>::declaration",
+    definitions = "<Vec<T> as borsh::BorshSchema>::add_definitions_recursively"
+  ))))]
+  vec : BoundedVec <T, 0, { usize::MAX }, Empty<{ usize::MAX }>>
+}
+
+// Keep the public Vec wire format independently of the storage bounds.
+#[cfg(feature = "serde")]
+fn serialize_vec<T: serde::Serialize, S: serde::Serializer>(
+  vec: &BoundedVec<T, 0, { usize::MAX }, Empty<{ usize::MAX }>>,
+  serializer: S,
+) -> Result<S::Ok, S::Error> {
+  serde::Serialize::serialize(vec.as_vec(), serializer)
+}
+
+#[cfg(feature = "borsh")]
+fn serialize_vec_borsh<T: borsh::BorshSerialize, W: borsh::io::Write>(
+  vec: &BoundedVec<T, 0, { usize::MAX }, Empty<{ usize::MAX }>>,
+  writer: &mut W,
+) -> borsh::io::Result<()> {
+  borsh::BorshSerialize::serialize(vec.as_vec(), writer)
 }
 
 /// Forward sorted set
@@ -119,17 +153,17 @@ impl FindOrInsert {
 impl <T : Ord> SortedVec <T> {
   #[inline]
   pub const fn new() -> Self {
-    SortedVec { vec: Vec::new() }
+    SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::new() }
   }
   #[inline]
   pub fn with_capacity (capacity : usize) -> Self {
-    SortedVec { vec: Vec::with_capacity (capacity) }
+    SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::with_capacity (capacity) }
   }
   /// Uses `sort_unstable()` to sort in place.
   #[inline]
   pub fn from_unsorted (mut vec : Vec <T>) -> Self {
     vec.sort_unstable();
-    SortedVec { vec }
+    SortedVec { vec: bound_vec(vec) }
   }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
@@ -154,7 +188,7 @@ impl <T : Ord> SortedVec <T> {
   pub fn push(&mut self, element: T) -> usize {
     if let Some(last) = self.vec.last() {
       let cmp = element.cmp(last);
-      if cmp == std::cmp::Ordering::Greater || cmp == std::cmp::Ordering::Equal {
+      if cmp == core::cmp::Ordering::Greater || cmp == core::cmp::Ordering::Equal {
         // The new element is greater than or equal to the current last element,
         // so we can simply push it onto the vec.
         self.vec.push(element);
@@ -172,7 +206,7 @@ impl <T : Ord> SortedVec <T> {
     }
   }
   /// Reserves additional capacity in the underlying vector.
-  /// See `std::vec::Vec::reserve`.
+  /// See `alloc::vec::Vec::reserve`.
   #[inline]
   pub fn reserve(&mut self, additional: usize) {
     self.vec.reserve(additional);
@@ -182,9 +216,9 @@ impl <T : Ord> SortedVec <T> {
   pub fn find_or_push(&mut self, element: T) -> FindOrInsert {
     if let Some(last) = self.vec.last() {
       let cmp = element.cmp(last);
-      if cmp == std::cmp::Ordering::Equal {
+      if cmp == core::cmp::Ordering::Equal {
         FindOrInsert::Found(self.vec.len() - 1)
-      } else if cmp == std::cmp::Ordering::Greater {
+      } else if cmp == core::cmp::Ordering::Greater {
         self.vec.push(element);
         FindOrInsert::Inserted(self.vec.len() - 1)
       } else {
@@ -232,8 +266,8 @@ impl <T : Ord> SortedVec <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.vec.drain (range)
   }
@@ -245,14 +279,14 @@ impl <T : Ord> SortedVec <T> {
   /// this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
-    self.vec
+    self.vec.to_vec()
   }
   /// Apply a closure mutating the sorted vector and use `sort_unstable()`
   /// to re-sort the mutated vector
   pub fn mutate_vec <F, O> (&mut self, f : F) -> O where
     F : FnOnce (&mut Vec <T>) -> O
   {
-    let res = f (&mut self.vec);
+    let res = f (self.vec.as_mut());
     self.vec.sort_unstable();
     res
   }
@@ -270,7 +304,7 @@ impl <T : Ord> SortedVec <T> {
   #[inline]
   pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
     debug_assert!(vec.is_sorted());
-    SortedVec { vec }
+    SortedVec { vec: bound_vec(vec) }
   }
   /// Unsafe access to the underlying vector. The caller must ensure that any
   /// changes to the values in the vector do not impact the ordering of the
@@ -279,8 +313,8 @@ impl <T : Ord> SortedVec <T> {
   /// # Safety
   ///
   /// Not safe.
-  pub const unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
-    &mut self.vec
+  pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
+    self.vec.as_mut()
   }
 
   /// Perform sorting on the input sequence when deserializing with `serde`.
@@ -306,7 +340,7 @@ impl <T : Ord> SortedVec <T> {
   }
 
   #[cfg(feature = "serde")]
-  fn parse_vec <'de, D> (deserializer : D) -> Result <Vec <T>, D::Error> where
+  fn parse_vec <'de, D> (deserializer : D) -> Result <BoundedVec <T, 0, { usize::MAX }, Empty<{ usize::MAX }>>, D::Error> where
     D : serde::Deserializer <'de>,
     T : serde::Deserialize <'de>
   {
@@ -316,7 +350,7 @@ impl <T : Ord> SortedVec <T> {
     if !v.is_sorted() {
       Err (D::Error::custom ("input sequence is not sorted"))
     } else {
-      Ok (v)
+      Ok (bound_vec(v))
     }
   }
 }
@@ -333,7 +367,7 @@ impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedVec <
     }
     let len = u32::deserialize_reader (reader)?;
     if len == 0 {
-      return Ok (SortedVec { vec: Vec::new() });
+      return Ok (SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::new() });
     }
     let el_size = size_of::<T>();
     let cap = core::cmp::max (
@@ -355,7 +389,7 @@ impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedVec <
       }
       vec.push (item);
     }
-    Ok (SortedVec { vec })
+    Ok (SortedVec { vec: bound_vec(vec) })
   }
 }
 #[cfg(feature = "proptest")]
@@ -396,10 +430,10 @@ impl <T : Ord> From <Vec <T>> for SortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : Ord> std::ops::Deref for SortedVec <T> {
+impl <T : Ord> core::ops::Deref for SortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
-    &self.vec
+    self.vec.as_vec()
   }
 }
 impl <T : Ord> Extend <T> for SortedVec <T> {
@@ -418,14 +452,14 @@ impl <T : Ord> FromIterator <T> for SortedVec <T> {
 }
 impl <T : Ord> IntoIterator for SortedVec <T> {
   type Item = T;
-  type IntoIter = std::vec::IntoIter <T>;
+  type IntoIter = alloc::vec::IntoIter <T>;
   fn into_iter (self) -> Self::IntoIter {
     self.vec.into_iter()
   }
 }
 impl <'a, T : Ord> IntoIterator for &'a SortedVec <T> {
   type Item = &'a T;
-  type IntoIter = std::slice::Iter <'a, T>;
+  type IntoIter = core::slice::Iter <'a, T>;
   fn into_iter (self) -> Self::IntoIter {
     self.vec.iter()
   }
@@ -467,7 +501,7 @@ impl <T : Ord> SortedSet <T> {
         unsafe {
           // If binary_search worked correctly, then this must be the index of a
           // valid element to get from the vector.
-          std::mem::swap (&mut element,
+          core::mem::swap (&mut element,
             self.set.vec.get_unchecked_mut(existing_index))
         }
         (existing_index, Some (element))
@@ -491,12 +525,12 @@ impl <T : Ord> SortedSet <T> {
   pub fn push(&mut self, element: T) -> (usize, Option<T>) {
     if let Some(last) = self.vec.last() {
       let cmp = element.cmp(last);
-      if cmp == std::cmp::Ordering::Greater {
+      if cmp == core::cmp::Ordering::Greater {
         // The new element is greater than the current last element, so we can
         // simply push it onto the vec.
         self.set.vec.push(element);
         (self.vec.len() - 1, None)
-      } else if cmp == std::cmp::Ordering::Equal {
+      } else if cmp == core::cmp::Ordering::Equal {
         // The new element is equal to the last element, so we can simply return
         // the last index in the vec and the value that is being replaced.
         let original = self.set.vec.pop();
@@ -515,7 +549,7 @@ impl <T : Ord> SortedSet <T> {
     }
   }
   /// Reserves additional capacity in the underlying vector.
-  /// See `std::vec::Vec::reserve`.
+  /// See `alloc::vec::Vec::reserve`.
   #[inline]
   pub fn reserve(&mut self, additional: usize) {
     self.set.reserve(additional);
@@ -544,8 +578,8 @@ impl <T : Ord> SortedSet <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.set.drain (range)
   }
@@ -590,7 +624,7 @@ impl <T : Ord> SortedSet <T> {
   pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
     #[expect(clippy::debug_assert_with_mut_call)]
     if cfg!(debug_assertions) {
-      let mut unique = std::collections::BTreeSet::new();
+      let mut unique = alloc::collections::BTreeSet::new();
       debug_assert!(vec.iter().all(|x| unique.insert(x)));
     }
     let set = unsafe { SortedVec::from_sorted(vec) };
@@ -603,7 +637,7 @@ impl <T : Ord> SortedSet <T> {
   /// # Safety
   ///
   /// Not safe.
-  pub const unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
+  pub unsafe fn get_unchecked_mut_vec(&mut self) -> &mut Vec<T> {
     unsafe { self.set.get_unchecked_mut_vec() }
   }
 
@@ -648,7 +682,7 @@ impl <T : Ord> SortedSet <T> {
     } else if !vec.is_sorted() {
       Err (D::Error::custom ("input set is not sorted"))
     } else {
-      Ok (SortedVec { vec })
+      Ok (SortedVec { vec: bound_vec(vec) })
     }
   }
 }
@@ -665,7 +699,7 @@ impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedSet <
     }
     let len = u32::deserialize_reader (reader)?;
     if len == 0 {
-      return Ok (SortedSet { set: SortedVec { vec: Vec::new() } });
+      return Ok (SortedSet { set: SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::new() } });
     }
     let el_size = size_of::<T>();
     let cap = core::cmp::max (
@@ -688,7 +722,7 @@ impl <T : Ord + borsh::BorshDeserialize> borsh::BorshDeserialize for SortedSet <
       }
       vec.push (item);
     }
-    Ok (SortedSet { set: SortedVec { vec } })
+    Ok (SortedSet { set: SortedVec { vec: bound_vec(vec) } })
   }
 }
 #[cfg(feature = "proptest")]
@@ -731,7 +765,7 @@ impl <T : Ord> From <Vec <T>> for SortedSet <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : Ord> std::ops::Deref for SortedSet <T> {
+impl <T : Ord> core::ops::Deref for SortedSet <T> {
   type Target = SortedVec <T>;
   fn deref (&self) -> &SortedVec <T> {
     &self.set
@@ -753,14 +787,14 @@ impl <T : Ord> FromIterator <T> for SortedSet <T> {
 }
 impl <T : Ord> IntoIterator for SortedSet <T> {
   type Item = T;
-  type IntoIter = std::vec::IntoIter <T>;
+  type IntoIter = alloc::vec::IntoIter <T>;
   fn into_iter (self) -> Self::IntoIter {
     self.set.into_iter()
   }
 }
 impl <'a, T : Ord> IntoIterator for &'a SortedSet <T> {
   type Item = &'a T;
-  type IntoIter = std::slice::Iter <'a, T>;
+  type IntoIter = core::slice::Iter <'a, T>;
   fn into_iter (self) -> Self::IntoIter {
     self.set.iter()
   }
@@ -778,12 +812,12 @@ impl <T : Ord + Hash> Hash for SortedSet <T> {
 /// usual comparison.
 ///
 /// Note that objects going into the reverse container needs to be wrapped in
-/// `std::cmp::Reverse`.
+/// `core::cmp::Reverse`.
 ///
 /// # Examples
 ///
 /// ```
-/// use std::cmp::Reverse;
+/// use core::cmp::Reverse;
 /// use sorted_vec::ReverseSortedVec;
 ///
 /// let mut vec = ReverseSortedVec::<u64>::new();
@@ -791,8 +825,8 @@ impl <T : Ord + Hash> Hash for SortedSet <T> {
 /// vec.insert(Reverse(15));
 /// assert_eq!(vec.last().unwrap().0, 10);
 /// ```
-pub type ReverseSortedVec<T> = SortedVec<std::cmp::Reverse<T>>;
-pub type ReverseSortedSet<T> = SortedSet<std::cmp::Reverse<T>>;
+pub type ReverseSortedVec<T> = SortedVec<core::cmp::Reverse<T>>;
+pub type ReverseSortedSet<T> = SortedSet<core::cmp::Reverse<T>>;
 
 #[cfg(test)]
 mod tests {

@@ -2,15 +2,16 @@
 //!
 //! It is a runtime panic if an incomparable element is compared.
 
-use std;
-use std::hash::{Hash, Hasher};
+use const_bounded_collections::{BoundedVec, witnesses::Empty};
+use alloc::vec::Vec;
+use core::hash::{Hash, Hasher};
 
 
 /// Forward sorted vector
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 #[expect(clippy::derive_partial_eq_without_eq)]
 pub struct SortedVec <T : PartialOrd> {
-  vec : Vec <T>
+  vec : BoundedVec <T, 0, { usize::MAX }, Empty<{ usize::MAX }>>
 }
 
 /// Forward sorted set
@@ -23,7 +24,7 @@ pub struct SortedSet <T : PartialOrd> {
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 #[expect(clippy::derive_partial_eq_without_eq)]
 pub struct ReverseSortedVec <T : PartialOrd> {
-  vec : Vec <T>
+  vec : BoundedVec <T, 0, { usize::MAX }, Empty<{ usize::MAX }>>
 }
 
 /// Reverse sorted set
@@ -33,7 +34,7 @@ pub struct ReverseSortedSet <T : PartialOrd> {
 }
 
 /// Unwraps a `partial_cmp`
-fn partial_compare <T : PartialOrd> (lhs : &T, rhs : &T) -> std::cmp::Ordering {
+fn partial_compare <T : PartialOrd> (lhs : &T, rhs : &T) -> core::cmp::Ordering {
   lhs.partial_cmp (rhs).unwrap()
 }
 
@@ -44,17 +45,17 @@ fn partial_compare <T : PartialOrd> (lhs : &T, rhs : &T) -> std::cmp::Ordering {
 impl <T : PartialOrd> SortedVec <T> {
   #[inline]
   pub const fn new() -> Self {
-    SortedVec { vec: Vec::new() }
+    SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::new() }
   }
   #[inline]
   pub fn with_capacity (capacity : usize) -> Self {
-    SortedVec { vec: Vec::with_capacity (capacity) }
+    SortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::with_capacity (capacity) }
   }
   /// Uses `sort_unstable_by()` to sort in place.
   #[inline]
   pub fn from_unsorted (mut vec : Vec <T>) -> Self {
     vec.sort_unstable_by (partial_compare);
-    SortedVec { vec }
+    SortedVec { vec: crate::bound_vec(vec) }
   }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
@@ -115,8 +116,8 @@ impl <T : PartialOrd> SortedVec <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.vec.drain (range)
   }
@@ -128,14 +129,14 @@ impl <T : PartialOrd> SortedVec <T> {
   /// use this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
-    self.vec
+    self.vec.to_vec()
   }
   /// Apply a closure mutating the sorted vector and use `sort_unstable_by()` to
   /// re-sort the mutated vector
   pub fn mutate_vec <F, O> (&mut self, f : F) -> O where
     F : FnOnce (&mut Vec <T>) -> O
   {
-    let res = f (&mut self.vec);
+    let res = f (self.vec.as_mut());
     self.vec.sort_unstable_by (partial_compare);
     res
   }
@@ -153,7 +154,7 @@ impl <T : PartialOrd> SortedVec <T> {
   #[inline]
   pub unsafe fn from_sorted(vec : Vec<T>) -> Self {
     debug_assert!(vec.is_sorted());
-    SortedVec { vec }
+    SortedVec { vec: crate::bound_vec(vec) }
   }
 }
 impl <T : PartialOrd> Default for SortedVec <T> {
@@ -166,10 +167,10 @@ impl <T : PartialOrd> From <Vec <T>> for SortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : PartialOrd> std::ops::Deref for SortedVec <T> {
+impl <T : PartialOrd> core::ops::Deref for SortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
-    &self.vec
+    self.vec.as_vec()
   }
 }
 impl <T : PartialOrd> Extend <T> for SortedVec <T> {
@@ -188,14 +189,14 @@ impl <T : PartialOrd> FromIterator <T> for SortedVec <T> {
 }
 impl <T : PartialOrd> IntoIterator for SortedVec <T> {
   type Item = T;
-  type IntoIter = std::vec::IntoIter<T>;
+  type IntoIter = alloc::vec::IntoIter<T>;
   fn into_iter (self) -> Self::IntoIter {
     self.vec.into_iter()
   }
 }
 impl<'a, T : PartialOrd> IntoIterator for &'a SortedVec<T> {
   type Item = &'a T;
-  type IntoIter = std::slice::Iter<'a, T>;
+  type IntoIter = core::slice::Iter<'a, T>;
   fn into_iter (self) -> Self::IntoIter {
     self.vec.iter()
   }
@@ -260,8 +261,8 @@ impl <T : PartialOrd> SortedSet <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.set.drain (range)
   }
@@ -336,7 +337,7 @@ impl <T : PartialOrd> From <Vec <T>> for SortedSet <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : PartialOrd> std::ops::Deref for SortedSet <T> {
+impl <T : PartialOrd> core::ops::Deref for SortedSet <T> {
   type Target = SortedVec <T>;
   fn deref (&self) -> &SortedVec <T> {
     &self.set
@@ -358,14 +359,14 @@ impl <T : PartialOrd> FromIterator <T> for SortedSet <T> {
 }
 impl<T : PartialOrd> IntoIterator for SortedSet<T> {
   type Item = T;
-  type IntoIter = std::vec::IntoIter<T>;
+  type IntoIter = alloc::vec::IntoIter<T>;
   fn into_iter (self) -> Self::IntoIter {
     self.set.vec.into_iter()
   }
 }
 impl<'a, T : PartialOrd> IntoIterator for &'a SortedSet<T> {
   type Item = &'a T;
-  type IntoIter = std::slice::Iter<'a, T>;
+  type IntoIter = core::slice::Iter<'a, T>;
   fn into_iter (self) -> Self::IntoIter {
     self.set.iter()
   }
@@ -384,17 +385,17 @@ impl <T : PartialOrd + Hash> Hash for SortedSet <T> {
 impl <T : PartialOrd> ReverseSortedVec <T> {
   #[inline]
   pub const fn new() -> Self {
-    ReverseSortedVec { vec: Vec::new() }
+    ReverseSortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::new() }
   }
   #[inline]
   pub fn with_capacity (capacity : usize) -> Self {
-    ReverseSortedVec { vec: Vec::with_capacity (capacity) }
+    ReverseSortedVec { vec: BoundedVec::<_, 0, { usize::MAX }, Empty<{ usize::MAX }>>::with_capacity (capacity) }
   }
   /// Uses `sort_unstable_by()` to sort in place.
   #[inline]
   pub fn from_unsorted (mut vec : Vec <T>) -> Self {
     vec.sort_unstable_by (|x,y| partial_compare (x,y).reverse());
-    ReverseSortedVec { vec }
+    ReverseSortedVec { vec: crate::bound_vec(vec) }
   }
   /// Insert an element into (reverse) sorted position, returning the order
   /// index at which it was placed.
@@ -454,8 +455,8 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.vec.drain (range)
   }
@@ -467,14 +468,14 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
   /// use this instead to avoid cloning
   #[inline]
   pub fn into_vec (self) -> Vec <T> {
-    self.vec
+    self.vec.to_vec()
   }
   /// Apply a closure mutating the reverse-sorted vector and use
   /// `sort_unstable_by()` to re-sort the mutated vector
   pub fn mutate_vec <F, O> (&mut self, f : F) -> O where
     F : FnOnce (&mut Vec <T>) -> O
   {
-    let res = f (&mut self.vec);
+    let res = f (self.vec.as_mut());
     self.vec.sort_unstable_by (|x,y| partial_compare (x,y).reverse());
     res
   }
@@ -489,10 +490,10 @@ impl <T : PartialOrd> From <Vec <T>> for ReverseSortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : PartialOrd> std::ops::Deref for ReverseSortedVec <T> {
+impl <T : PartialOrd> core::ops::Deref for ReverseSortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
-    &self.vec
+    self.vec.as_vec()
   }
 }
 impl <T : PartialOrd> Extend <T> for ReverseSortedVec <T> {
@@ -569,8 +570,8 @@ impl <T : PartialOrd> ReverseSortedSet <T> {
   }
   #[inline]
   #[expect(mismatched_lifetime_syntaxes)]
-  pub fn drain <R> (&mut self, range : R) -> std::vec::Drain <T> where
-    R : std::ops::RangeBounds <usize>
+  pub fn drain <R> (&mut self, range : R) -> alloc::vec::Drain <T> where
+    R : core::ops::RangeBounds <usize>
   {
     self.set.drain (range)
   }
@@ -605,7 +606,7 @@ impl <T : PartialOrd> From <Vec <T>> for ReverseSortedSet <T> {
     Self::from_unsorted (unsorted)
   }
 }
-impl <T : PartialOrd> std::ops::Deref for ReverseSortedSet <T> {
+impl <T : PartialOrd> core::ops::Deref for ReverseSortedSet <T> {
   type Target = ReverseSortedVec <T>;
   fn deref (&self) -> &ReverseSortedVec <T> {
     &self.set
