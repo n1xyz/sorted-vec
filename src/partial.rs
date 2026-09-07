@@ -57,6 +57,57 @@ impl <T : PartialOrd> SortedVec <T> {
     vec.sort_unstable_by (partial_compare);
     SortedVec { vec: crate::bound_vec(vec) }
   }
+  /// Attempts to create a `SortedVec` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// sorted (non-decreasing).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, crate::NotSorted<T>> {
+    for i in 1..vec.len() {
+      if partial_compare(&vec[i - 1], &vec[i]) == core::cmp::Ordering::Greater {
+        return Err(crate::NotSorted { index: i, vec });
+      }
+    }
+    Ok(SortedVec { vec: crate::bound_vec(vec) })
+  }
+  /// Attempts to create a `SortedVec` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not sorted (non-decreasing).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, crate::NotSortedSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if partial_compare(&slice[i - 1], &slice[i]) == core::cmp::Ordering::Greater {
+        return Err(crate::NotSortedSlice { index: i });
+      }
+    }
+    Ok(SortedVec { vec: crate::bound_vec(slice.to_vec()) })
+  }
+  /// Push an element to the back of the container if it is greater than or equal
+  /// to the current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is less than the last element in the container.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if partial_compare(last, &element) != core::cmp::Ordering::Greater {
+        self.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.vec.push(element);
+      Ok(0)
+    }
+  }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
   ///
@@ -167,6 +218,13 @@ impl <T : PartialOrd> From <Vec <T>> for SortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
+impl <T : PartialOrd + Clone> TryFrom <&[T]> for SortedVec <T> {
+  type Error = crate::NotSortedSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
+  }
+}
 impl <T : PartialOrd> core::ops::Deref for SortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
@@ -228,6 +286,57 @@ impl <T : PartialOrd> SortedSet <T> {
     let mut set = SortedVec::from_unsorted (vec);
     set.dedup();
     SortedSet { set }
+  }
+  /// Attempts to create a `SortedSet` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// strictly increasing (sorted and unique).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, crate::NotStrictlyIncreasing<T>> {
+    for i in 1..vec.len() {
+      if partial_compare(&vec[i - 1], &vec[i]) != core::cmp::Ordering::Less {
+        return Err(crate::NotStrictlyIncreasing { index: i, vec });
+      }
+    }
+    Ok(SortedSet { set: SortedVec { vec: crate::bound_vec(vec) } })
+  }
+  /// Attempts to create a `SortedSet` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not strictly increasing.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, crate::NotStrictlyIncreasingSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if partial_compare(&slice[i - 1], &slice[i]) != core::cmp::Ordering::Less {
+        return Err(crate::NotStrictlyIncreasingSlice { index: i });
+      }
+    }
+    Ok(SortedSet { set: SortedVec { vec: crate::bound_vec(slice.to_vec()) } })
+  }
+  /// Push an element to the back of the set if it is strictly greater than the
+  /// current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is less than or equal to the last element in the set.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if partial_compare(last, &element) == core::cmp::Ordering::Less {
+        self.set.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.set.vec.push(element);
+      Ok(0)
+    }
   }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
@@ -337,6 +446,13 @@ impl <T : PartialOrd> From <Vec <T>> for SortedSet <T> {
     Self::from_unsorted (unsorted)
   }
 }
+impl <T : PartialOrd + Clone> TryFrom <&[T]> for SortedSet <T> {
+  type Error = crate::NotStrictlyIncreasingSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
+  }
+}
 impl <T : PartialOrd> core::ops::Deref for SortedSet <T> {
   type Target = SortedVec <T>;
   fn deref (&self) -> &SortedVec <T> {
@@ -396,6 +512,57 @@ impl <T : PartialOrd> ReverseSortedVec <T> {
   pub fn from_unsorted (mut vec : Vec <T>) -> Self {
     vec.sort_unstable_by (|x,y| partial_compare (x,y).reverse());
     ReverseSortedVec { vec: crate::bound_vec(vec) }
+  }
+  /// Attempts to create a `ReverseSortedVec` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// sorted in reverse order (non-increasing).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, crate::NotSorted<T>> {
+    for i in 1..vec.len() {
+      if partial_compare(&vec[i - 1], &vec[i]) == core::cmp::Ordering::Less {
+        return Err(crate::NotSorted { index: i, vec });
+      }
+    }
+    Ok(ReverseSortedVec { vec: crate::bound_vec(vec) })
+  }
+  /// Attempts to create a `ReverseSortedVec` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not sorted in reverse order (non-increasing).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, crate::NotSortedSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if partial_compare(&slice[i - 1], &slice[i]) == core::cmp::Ordering::Less {
+        return Err(crate::NotSortedSlice { index: i });
+      }
+    }
+    Ok(ReverseSortedVec { vec: crate::bound_vec(slice.to_vec()) })
+  }
+  /// Push an element to the back of the container if it is less than or equal
+  /// to the current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is greater than the last element in the container.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if partial_compare(last, &element) != core::cmp::Ordering::Less {
+        self.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.vec.push(element);
+      Ok(0)
+    }
   }
   /// Insert an element into (reverse) sorted position, returning the order
   /// index at which it was placed.
@@ -490,6 +657,13 @@ impl <T : PartialOrd> From <Vec <T>> for ReverseSortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
+impl <T : PartialOrd + Clone> TryFrom <&[T]> for ReverseSortedVec <T> {
+  type Error = crate::NotSortedSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
+  }
+}
 impl <T : PartialOrd> core::ops::Deref for ReverseSortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
@@ -537,6 +711,57 @@ impl <T : PartialOrd> ReverseSortedSet <T> {
     let mut set = ReverseSortedVec::from_unsorted (vec);
     set.dedup();
     ReverseSortedSet { set }
+  }
+  /// Attempts to create a `ReverseSortedSet` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// strictly decreasing (reverse sorted and unique).
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, crate::NotStrictlyIncreasing<T>> {
+    for i in 1..vec.len() {
+      if partial_compare(&vec[i - 1], &vec[i]) != core::cmp::Ordering::Greater {
+        return Err(crate::NotStrictlyIncreasing { index: i, vec });
+      }
+    }
+    Ok(ReverseSortedSet { set: ReverseSortedVec { vec: crate::bound_vec(vec) } })
+  }
+  /// Attempts to create a `ReverseSortedSet` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not strictly decreasing.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, crate::NotStrictlyIncreasingSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if partial_compare(&slice[i - 1], &slice[i]) != core::cmp::Ordering::Greater {
+        return Err(crate::NotStrictlyIncreasingSlice { index: i });
+      }
+    }
+    Ok(ReverseSortedSet { set: ReverseSortedVec { vec: crate::bound_vec(slice.to_vec()) } })
+  }
+  /// Push an element to the back of the set if it is strictly less than the
+  /// current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is greater than or equal to the last element in the set.
+  ///
+  /// Partial order comparison panics if items are not comparable.
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if partial_compare(last, &element) == core::cmp::Ordering::Greater {
+        self.set.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.set.vec.push(element);
+      Ok(0)
+    }
   }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
@@ -604,6 +829,13 @@ impl <T : PartialOrd> Default for ReverseSortedSet <T> {
 impl <T : PartialOrd> From <Vec <T>> for ReverseSortedSet <T> {
   fn from (unsorted : Vec <T>) -> Self {
     Self::from_unsorted (unsorted)
+  }
+}
+impl <T : PartialOrd + Clone> TryFrom <&[T]> for ReverseSortedSet <T> {
+  type Error = crate::NotStrictlyIncreasingSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
   }
 }
 impl <T : PartialOrd> core::ops::Deref for ReverseSortedSet <T> {
@@ -761,4 +993,33 @@ mod tests {
       [5.0, -10.0, 2.0, 99.0, -11.0, -11.0, 2.0, 17.0, 10.0]);
     assert_eq!(***s, [99.0, 17.0, 10.0, 5.0, 2.0, -10.0, -11.0]);
   }
+
+  #[test]
+  fn partial_try_from() {
+    // SortedVec
+    let v = vec![1.0, 2.0, 2.0, 3.0];
+    let sv = SortedVec::try_from_sorted(v).unwrap();
+    assert_eq!(*sv, vec![1.0, 2.0, 2.0, 3.0]);
+    let err = SortedVec::try_from_sorted(vec![1.0, 3.0, 2.0]).unwrap_err();
+    assert_eq!(err.index(), 2);
+
+    // SortedSet
+    let set = SortedSet::try_from_sorted(vec![1.0, 2.0, 3.0]).unwrap();
+    assert_eq!(set.as_slice(), [1.0, 2.0, 3.0]);
+    let err_set = SortedSet::try_from_sorted(vec![1.0, 2.0, 2.0]).unwrap_err();
+    assert_eq!(err_set.index(), 2);
+
+    // ReverseSortedVec
+    let rsv = ReverseSortedVec::try_from_sorted(vec![3.0, 2.0, 2.0, 1.0]).unwrap();
+    assert_eq!(*rsv, vec![3.0, 2.0, 2.0, 1.0]);
+    let err_rsv = ReverseSortedVec::try_from_sorted(vec![3.0, 1.0, 2.0]).unwrap_err();
+    assert_eq!(err_rsv.index(), 2);
+
+    // ReverseSortedSet
+    let rss = ReverseSortedSet::try_from_sorted(vec![3.0, 2.0, 1.0]).unwrap();
+    assert_eq!(rss.as_slice(), [3.0, 2.0, 1.0]);
+    let err_rss = ReverseSortedSet::try_from_sorted(vec![3.0, 2.0, 2.0]).unwrap_err();
+    assert_eq!(err_rss.index(), 2);
+  }
 }
+

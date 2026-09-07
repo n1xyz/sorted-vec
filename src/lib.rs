@@ -146,6 +146,114 @@ impl FindOrInsert {
   }
 }
 
+/// Error indicating that elements are not sorted (non-decreasing).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NotSorted<T> {
+  /// Index of the first element that was less than its predecessor.
+  pub index: usize,
+  /// The input vector that failed validation.
+  pub vec: Vec<T>,
+}
+
+impl<T> NotSorted<T> {
+  /// Returns the index of the first out-of-order element.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+
+  /// Unwraps the inner vector.
+  #[inline]
+  pub fn into_vec(self) -> Vec<T> {
+    self.vec
+  }
+}
+
+impl<T> core::fmt::Display for NotSorted<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "elements are not sorted at index {}", self.index)
+  }
+}
+
+impl<T: core::fmt::Debug> core::error::Error for NotSorted<T> {}
+
+/// Error indicating that elements in a slice are not sorted (non-decreasing).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NotSortedSlice {
+  /// Index of the first element that was less than its predecessor.
+  pub index: usize,
+}
+
+impl NotSortedSlice {
+  /// Returns the index of the first out-of-order element.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+}
+
+impl core::fmt::Display for NotSortedSlice {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "elements are not sorted at index {}", self.index)
+  }
+}
+
+impl core::error::Error for NotSortedSlice {}
+
+/// Error indicating that elements are not strictly increasing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NotStrictlyIncreasing<T> {
+  /// Index of the first element that was not strictly greater than its predecessor.
+  pub index: usize,
+  /// The input vector that failed validation.
+  pub vec: Vec<T>,
+}
+
+impl<T> NotStrictlyIncreasing<T> {
+  /// Returns the index of the first out-of-order element.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+
+  /// Unwraps the inner vector.
+  #[inline]
+  pub fn into_vec(self) -> Vec<T> {
+    self.vec
+  }
+}
+
+impl<T> core::fmt::Display for NotStrictlyIncreasing<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "elements are not strictly increasing at index {}", self.index)
+  }
+}
+
+impl<T: core::fmt::Debug> core::error::Error for NotStrictlyIncreasing<T> {}
+
+/// Error indicating that elements in a slice are not strictly increasing.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NotStrictlyIncreasingSlice {
+  /// Index of the first element that was not strictly greater than its predecessor.
+  pub index: usize,
+}
+
+impl NotStrictlyIncreasingSlice {
+  /// Returns the index of the first out-of-order element.
+  #[inline]
+  pub const fn index(&self) -> usize {
+    self.index
+  }
+}
+
+impl core::fmt::Display for NotStrictlyIncreasingSlice {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "elements are not strictly increasing at index {}", self.index)
+  }
+}
+
+impl core::error::Error for NotStrictlyIncreasingSlice {}
+
 //
 //  impl SortedVec
 //
@@ -164,6 +272,59 @@ impl <T : Ord> SortedVec <T> {
   pub fn from_unsorted (mut vec : Vec <T>) -> Self {
     vec.sort_unstable();
     SortedVec { vec: bound_vec(vec) }
+  }
+  /// Attempts to create a `SortedVec` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// sorted (non-decreasing).
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedVec;
+  ///
+  /// let v = vec![1, 2, 2, 4];
+  /// let sv = SortedVec::try_from_sorted(v).unwrap();
+  /// assert_eq!(*sv, [1, 2, 2, 4]);
+  ///
+  /// let err = SortedVec::try_from_sorted(vec![1, 3, 2]).unwrap_err();
+  /// assert_eq!(err.index(), 2);
+  /// assert_eq!(err.into_vec(), vec![1, 3, 2]);
+  /// ```
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, NotSorted<T>> {
+    for i in 1..vec.len() {
+      if vec[i - 1] > vec[i] {
+        return Err(NotSorted { index: i, vec });
+      }
+    }
+    Ok(SortedVec { vec: bound_vec(vec) })
+  }
+  /// Attempts to create a `SortedVec` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not sorted (non-decreasing).
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedVec;
+  ///
+  /// let slice = [1, 2, 2, 4];
+  /// let sv = SortedVec::try_from_sorted_slice(&slice).unwrap();
+  /// assert_eq!(*sv, [1, 2, 2, 4]);
+  ///
+  /// let err = SortedVec::try_from_sorted_slice(&[1, 3, 2]).unwrap_err();
+  /// assert_eq!(err.index(), 2);
+  /// ```
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, NotSortedSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if slice[i - 1] > slice[i] {
+        return Err(NotSortedSlice { index: i });
+      }
+    }
+    Ok(SortedVec { vec: bound_vec(slice.to_vec()) })
   }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed.
@@ -203,6 +364,36 @@ impl <T : Ord> SortedVec <T> {
       // can simply push the element and return its index, which must be 0.
       self.vec.push(element);
       0
+    }
+  }
+  /// Push an element to the back of the container if it is greater than or equal
+  /// to the current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is less than the last element in the container.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedVec;
+  ///
+  /// let mut v = SortedVec::new();
+  /// assert_eq!(v.try_push(1), Ok(0));
+  /// assert_eq!(v.try_push(2), Ok(1));
+  /// assert_eq!(v.try_push(1), Err(1));
+  /// ```
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if last <= &element {
+        self.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.vec.push(element);
+      Ok(0)
     }
   }
   /// Reserves additional capacity in the underlying vector.
@@ -430,6 +621,13 @@ impl <T : Ord> From <Vec <T>> for SortedVec <T> {
     Self::from_unsorted (unsorted)
   }
 }
+impl <T : Ord + Clone> TryFrom <&[T]> for SortedVec <T> {
+  type Error = NotSortedSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
+  }
+}
 impl <T : Ord> core::ops::Deref for SortedVec <T> {
   type Target = Vec <T>;
   fn deref (&self) -> &Vec <T> {
@@ -492,6 +690,59 @@ impl <T : Ord> SortedSet <T> {
     set.dedup();
     SortedSet { set }
   }
+  /// Attempts to create a `SortedSet` from a vector without sorting.
+  ///
+  /// The caller does not need `unsafe`. Returns an error if the elements are not
+  /// strictly increasing (sorted and unique).
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedSet;
+  ///
+  /// let v = vec![1, 2, 4, 8];
+  /// let s = SortedSet::try_from_sorted(v).unwrap();
+  /// assert_eq!(s.as_slice(), [1, 2, 4, 8]);
+  ///
+  /// let err = SortedSet::try_from_sorted(vec![1, 2, 2, 3]).unwrap_err();
+  /// assert_eq!(err.index(), 2);
+  /// assert_eq!(err.into_vec(), vec![1, 2, 2, 3]);
+  /// ```
+  pub fn try_from_sorted(vec: Vec<T>) -> Result<Self, NotStrictlyIncreasing<T>> {
+    for i in 1..vec.len() {
+      if vec[i - 1] >= vec[i] {
+        return Err(NotStrictlyIncreasing { index: i, vec });
+      }
+    }
+    Ok(SortedSet { set: SortedVec { vec: bound_vec(vec) } })
+  }
+  /// Attempts to create a `SortedSet` from a slice by cloning elements without sorting.
+  ///
+  /// Returns an error if the elements are not strictly increasing.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedSet;
+  ///
+  /// let slice = [1, 3, 5];
+  /// let s = SortedSet::try_from_sorted_slice(&slice).unwrap();
+  /// assert_eq!(s.as_slice(), [1, 3, 5]);
+  ///
+  /// let err = SortedSet::try_from_sorted_slice(&[1, 5, 2]).unwrap_err();
+  /// assert_eq!(err.index(), 2);
+  /// ```
+  pub fn try_from_sorted_slice(slice: &[T]) -> Result<Self, NotStrictlyIncreasingSlice>
+  where
+    T: Clone,
+  {
+    for i in 1..slice.len() {
+      if slice[i - 1] >= slice[i] {
+        return Err(NotStrictlyIncreasingSlice { index: i });
+      }
+    }
+    Ok(SortedSet { set: SortedVec { vec: bound_vec(slice.to_vec()) } })
+  }
   /// Insert an element into sorted position, returning the order index at which
   /// it was placed. If an existing item was found it will be returned.
   #[inline]
@@ -546,6 +797,37 @@ impl <T : Ord> SortedSet <T> {
       // simply push the element and return its index, which must be 0.
       self.set.vec.push(element);
       (0, None)
+    }
+  }
+  /// Push an element to the back of the set if it is strictly greater than the
+  /// current last element.
+  ///
+  /// Returns `Ok(index)` if successfully pushed, or `Err(element)` if the element
+  /// is less than or equal to the last element in the set.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use sorted_vec::SortedSet;
+  ///
+  /// let mut s = SortedSet::new();
+  /// assert_eq!(s.try_push(1), Ok(0));
+  /// assert_eq!(s.try_push(2), Ok(1));
+  /// assert_eq!(s.try_push(2), Err(2));
+  /// assert_eq!(s.try_push(0), Err(0));
+  /// ```
+  #[inline]
+  pub fn try_push(&mut self, element: T) -> Result<usize, T> {
+    if let Some(last) = self.vec.last() {
+      if last < &element {
+        self.set.vec.push(element);
+        Ok(self.vec.len() - 1)
+      } else {
+        Err(element)
+      }
+    } else {
+      self.set.vec.push(element);
+      Ok(0)
     }
   }
   /// Reserves additional capacity in the underlying vector.
@@ -763,6 +1045,13 @@ impl <T : Ord> Default for SortedSet <T> {
 impl <T : Ord> From <Vec <T>> for SortedSet <T> {
   fn from (unsorted : Vec <T>) -> Self {
     Self::from_unsorted (unsorted)
+  }
+}
+impl <T : Ord + Clone> TryFrom <&[T]> for SortedSet <T> {
+  type Error = NotStrictlyIncreasingSlice;
+  #[inline]
+  fn try_from (slice : &[T]) -> Result <Self, Self::Error> {
+    Self::try_from_sorted_slice (slice)
   }
 }
 impl <T : Ord> core::ops::Deref for SortedSet <T> {
@@ -1159,5 +1448,91 @@ mod tests {
         assert!(a < b);
       }
     }
+  }
+
+  #[test]
+  fn sorted_vec_try_from() {
+    let empty: Vec<i32> = vec![];
+    assert!(SortedVec::try_from_sorted(empty).unwrap().is_empty());
+
+    let single = vec![42];
+    assert_eq!(*SortedVec::try_from_sorted(single).unwrap(), vec![42]);
+
+    let valid = vec![1, 2, 2, 4, 9];
+    let sv = SortedVec::try_from_sorted(valid).unwrap();
+    assert_eq!(*sv, vec![1, 2, 2, 4, 9]);
+
+    let invalid = vec![1, 3, 2, 4];
+    let err = SortedVec::try_from_sorted(invalid).unwrap_err();
+    assert_eq!(err.index(), 2);
+    assert_eq!(err.into_vec(), vec![1, 3, 2, 4]);
+
+    // Slice
+    let valid_slice = [1, 2, 3];
+    let sv_slice = SortedVec::try_from_sorted_slice(&valid_slice).unwrap();
+    assert_eq!(*sv_slice, vec![1, 2, 3]);
+
+    let invalid_slice = [3, 2, 1];
+    let err_slice = SortedVec::try_from_sorted_slice(&invalid_slice).unwrap_err();
+    assert_eq!(err_slice.index(), 1);
+
+    // TryFrom &[T]
+    let from_slice = <SortedVec<i32>>::try_from(&valid_slice[..]).unwrap();
+    assert_eq!(*from_slice, vec![1, 2, 3]);
+  }
+
+  #[test]
+  fn sorted_set_try_from() {
+    let empty: Vec<i32> = vec![];
+    assert!(SortedSet::try_from_sorted(empty).unwrap().is_empty());
+
+    let single = vec![42];
+    assert_eq!(SortedSet::try_from_sorted(single).unwrap().as_slice(), [42]);
+
+    let valid = vec![1, 2, 4, 9];
+    let set = SortedSet::try_from_sorted(valid).unwrap();
+    assert_eq!(set.as_slice(), [1, 2, 4, 9]);
+
+    // Duplicates are not strictly increasing
+    let dup = vec![1, 2, 2, 4];
+    let err_dup = SortedSet::try_from_sorted(dup).unwrap_err();
+    assert_eq!(err_dup.index(), 2);
+    assert_eq!(err_dup.into_vec(), vec![1, 2, 2, 4]);
+
+    // Decreasing is not strictly increasing
+    let dec = vec![1, 5, 2, 4];
+    let err_dec = SortedSet::try_from_sorted(dec).unwrap_err();
+    assert_eq!(err_dec.index(), 2);
+    assert_eq!(err_dec.into_vec(), vec![1, 5, 2, 4]);
+
+    // Slice
+    let valid_slice = [10, 20, 30];
+    let set_slice = SortedSet::try_from_sorted_slice(&valid_slice).unwrap();
+    assert_eq!(set_slice.as_slice(), [10, 20, 30]);
+
+    let dup_slice = [10, 20, 20];
+    let err_dup_slice = SortedSet::try_from_sorted_slice(&dup_slice).unwrap_err();
+    assert_eq!(err_dup_slice.index(), 2);
+
+    // TryFrom &[T]
+    let from_slice = <SortedSet<i32>>::try_from(&valid_slice[..]).unwrap();
+    assert_eq!(from_slice.as_slice(), [10, 20, 30]);
+  }
+
+  #[test]
+  fn try_push_methods() {
+    let mut sv = SortedVec::new();
+    assert_eq!(sv.try_push(1), Ok(0));
+    assert_eq!(sv.try_push(1), Ok(1)); // duplicate allowed
+    assert_eq!(sv.try_push(3), Ok(2));
+    assert_eq!(sv.try_push(2), Err(2));
+    assert_eq!(*sv, vec![1, 1, 3]);
+
+    let mut set = SortedSet::new();
+    assert_eq!(set.try_push(1), Ok(0));
+    assert_eq!(set.try_push(1), Err(1)); // duplicate rejected
+    assert_eq!(set.try_push(3), Ok(1));
+    assert_eq!(set.try_push(2), Err(2));
+    assert_eq!(set.as_slice(), [1, 3]);
   }
 }
